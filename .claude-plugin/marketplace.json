@@ -1,0 +1,11 @@
+{
+  "name": "pantoo-ai",
+  "owner": { "name": "Pantoo Solutions" },
+  "plugins": [
+    {
+      "name": "pantoo",
+      "source": "./plugin",
+      "description": "Skills and agents that take a project from idea to shipped code, with its knowledge kept in files."
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "name": "pantoo",
+  "version": "0.8.0",
+  "description": "Pantoo's kit for Claude Code: project workflow skills and review, verification and build agents.",
+  "author": {
+    "name": "Pantoo Solutions"
+  },
+  "license": "MIT",
+  "userConfig": {
+    "commit_guard": {
+      "type": "string",
+      "title": "Commit guard",
+      "description": "What to do when a git commit or PR text credits Claude or an AI: One of block, warn or off.",
+      "default": "block",
+      "required": false
+    }
+  }
+}

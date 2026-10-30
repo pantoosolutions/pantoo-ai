@@ -1,0 +1,34 @@
+{
+  "skillsCli": "skills@1.7.4",
+  "tools": {
+    "impeccable": {
+      "label": "impeccable (shape, critique, audit, polish)",
+      "repo": "pbakaus/impeccable",
+      "tag": "skill-v4.8.0",
+      "via": "npm",
+      "npm": "impeccable@4.8.0",
+      "skills": ["impeccable"],
+      "agents": ["impeccable-asset-producer", "impeccable-documenter", "impeccable-finish-reviewer", "impeccable-manual-edit-applier"]
+    },
+    "taste": {
+      "label": "taste (design-taste-frontend)",
+      "repo": "Leonxlnx/taste-skill",
+      "tag": "v2.1.5",
+      "sha": "12af471f627f866411b4bd785b19646d3672784c",
+      "via": "skills",
+      "skills": ["design-taste-frontend"]
+    },
+    "ui-ux-pro-max": {
+      "label": "ui-ux-pro-max (styles, palettes, font pairings)",
+      "repo": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "tag": "v2.15.0",
+      "sha": "a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5",
+      "via": "skills",
+      "skills": ["ui-ux-pro-max"],
+      "companions": ["design", "design-system", "brand", "banner-design", "slides", "ui-styling"]
+    }
+  },
+  "packs": {
+    "design": ["impeccable", "taste", "ui-ux-pro-max"]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "pantoo-ai",
+  "version": "0.8.0",
+  "description": "Pantoo's kit for Claude Code: skills, agents, rules and context templates, installed with one command.",
+  "license": "MIT",
+  "author": "Pantoo Solutions S.A.C.",
+  "repository": { "type": "git", "url": "git+https://github.com/pantoosolutions/pantoo-ai.git" },
+  "homepage": "https://github.com/pantoosolutions/pantoo-ai#readme",
+  "bugs": "https://github.com/pantoosolutions/pantoo-ai/issues",
+  "keywords": ["claude-code", "claude-code-plugin", "agent-skills", "ai-coding", "scaffolding", "cli"],
+  "type": "module",
+  "bin": { "pantoo-ai": "cli/bin/pantoo-ai.js" },
+  "engines": { "node": ">=20" },
+  "files": [
+    ".claude-plugin", "agents-user", "cli", "plugin", "rules", "settings",
+    "third-party.json", "LICENSE", "THIRD_PARTY_NOTICES.md", "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "node --test cli/test/*.test.js",
+    "check": "node scripts/check-skills.mjs"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.11.0"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+  },
+  "modelSettings": {
+    "claude-opus-5-5": { "effortLevel": "high" },
+    "claude-sonnet-5-5": { "effortLevel": "medium" },
+    "claude-haiku-5-5": { "effortLevel": "medium" }
+  },
+  "attribution": { "commit": "", "pr": "", "sessionUrl": false },
+  "extraKnownMarketplaces": {
+    "pantoo-ai": { "source": { "source": "github", "repo": "pantoosolutions/pantoo-ai" }, "autoUpdate": true }
+  },
+  "enabledPlugins": {
+    "pantoo@pantoo-ai": true
+  }
+}

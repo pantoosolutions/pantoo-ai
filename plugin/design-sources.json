@@ -1,0 +1,111 @@
+{
+  "checked": "2026-10-28",
+  "ways": ["tokens", "code", "mcp", "link", "files"],
+  "tools": {
+    "figma": {
+      "label": "Figma",
+      "ways": ["mcp", "tokens", "files"],
+      "mcp": {
+        "name": "figma",
+        "server": { "type": "http", "url": "https://mcp.figma.com/mcp" },
+        "signIn": "run /mcp in Claude Code and sign in with your own Figma account",
+        "read": ["get_variable_defs", "get_design_context", "get_metadata", "search_design_system", "get_libraries", "get_screenshot"],
+        "writes": "use_figma, generate_figma_design, html_to_figma and others edit the canvas"
+      },
+      "handoffs": "Variables through the Tokens Studio plugin (tokens); exported SVG, PNG or PDF (files)",
+      "notes": "Read calls are rate limited per seat: View and Collab seats get 20 a month, Dev and Full seats 200 a day (Professional). Use a Dev or Full seat, and read variables once per node per sync. Location: the file URL with the node-id of each frame that matters. The desktop server is only for org or enterprise needs",
+      "docs": "https://developers.figma.com/docs/figma-mcp-server/",
+      "checked": "2026-10-28"
+    },
+    "penpot": {
+      "label": "Penpot",
+      "ways": ["tokens", "mcp", "files"],
+      "mcp": {
+        "name": "penpot",
+        "server": { "type": "http", "url": "https://design.penpot.app/mcp/stream?userToken=${PENPOT_MCP_KEY}" },
+        "signIn": "create an MCP key in Penpot (Integrations) and export it as PENPOT_MCP_KEY in your shell; self-hosted Penpot: change the domain",
+        "read": ["high_level_overview", "penpot_api_info", "export_shape", "execute_code"],
+        "writes": "execute_code runs plugin code that can change the file; import_image adds images"
+      },
+      "handoffs": "Design token export (JSON); exported SVG or PNG",
+      "notes": "Penpot's docs describe its tokens as DTCG ($value, $type); a community report says the export follows Tokens Studio's shape instead. Check the keys before mapping. MCP is active in one browser tab at a time, and the local server needs the MCP plugin open in Penpot",
+      "docs": "https://help.penpot.app/mcp/",
+      "checked": "2026-10-28"
+    },
+    "sketch": {
+      "label": "Sketch",
+      "ways": ["mcp", "files"],
+      "mcp": {
+        "name": "sketch",
+        "server": { "type": "http", "url": "http://localhost:31126/mcp" },
+        "signIn": "start the MCP server in Sketch (2025.2.4 or later, direct download, not the App Store build) and allow Local Network access",
+        "read": ["get_document_info", "get_layer_tree_summary", "get_design_assets", "get_symbol_overrides", "get_screenshot"],
+        "writes": "run_code runs SketchAPI scripts that can change the document"
+      },
+      "handoffs": "Exported SVG or PNG",
+      "notes": "Local only: the server runs inside Sketch on each person's Mac. get_design_assets returns colour swatches, text styles, layer styles and symbols; colour variables are not documented",
+      "docs": "https://www.sketch.com/docs/mcp-server/",
+      "checked": "2026-10-28"
+    },
+    "webflow": {
+      "label": "Webflow",
+      "ways": ["code", "mcp", "link"],
+      "mcp": {
+        "name": "webflow",
+        "server": { "type": "http", "url": "https://mcp.webflow.com/mcp" },
+        "signIn": "run /mcp in Claude Code, sign in and authorize the site; launch the Webflow MCP Bridge App in the Designer for design tools",
+        "read": ["get_all_elements", "query_elements", "variables and styles (tool names not documented)"],
+        "writes": "set_style, set_text and the variable and style tools edit the site; no read-only mode"
+      },
+      "handoffs": "Site code export (code); the published site (link)",
+      "notes": "The README also lists an /sse endpoint for other clients; Claude Code uses /mcp. No read-only scope, so name the read tool in every call",
+      "docs": "https://developers.webflow.com/mcp/setup",
+      "checked": "2026-10-28"
+    },
+    "canva": {
+      "label": "Canva",
+      "ways": ["files", "mcp"],
+      "mcp": null,
+      "handoffs": "Exported PDF, PNG or SVG (files); brand kit colours and fonts",
+      "notes": "Canva has an official MCP server (OAuth per person), but its URL wasn't confirmed on 2026-10-28: add it by hand from canva.com/help/mcp-agent-setup as \"canva\" in .mcp.json. Brand kits need Canva Pro or above",
+      "docs": "https://canva.dev/docs/mcp/",
+      "checked": "2026-10-28"
+    },
+    "framer": {
+      "label": "Framer",
+      "ways": ["code", "link", "files"],
+      "mcp": null,
+      "handoffs": "React export (code); the published site (link)",
+      "notes": "No official MCP server: the Framer MCP plugin is third party (unframer), so it isn't set up by the kit",
+      "docs": "https://www.framer.com/developers/",
+      "checked": "2026-10-28"
+    },
+    "stitch": {
+      "label": "Google Stitch",
+      "ways": ["tokens", "code"],
+      "mcp": null,
+      "handoffs": "DESIGN.md export (tokens); HTML and CSS export (code)",
+      "notes": "An MCP setup page exists at stitch.withgoogle.com/docs/mcp/setup but its contents weren't confirmed on 2026-10-28; the DESIGN.md export is confirmed only by third parties",
+      "docs": "https://stitch.withgoogle.com/docs/mcp/setup",
+      "checked": "2026-10-28"
+    },
+    "claude-design": {
+      "label": "Claude Design",
+      "ways": ["code", "files"],
+      "mcp": null,
+      "handoffs": "Handoff to Claude Code (send to the local coding agent, or to Claude Code on the web), standalone HTML export (code); zip, PDF or PPTX export (files)",
+      "notes": "No MCP server. The handoff's contents aren't documented: list what arrived before reading it. /design-sync pulls a design system into Claude Design; nothing documents a sync back out",
+      "docs": "https://support.claude.com/en/articles/14604416-get-started-with-claude-design",
+      "checked": "2026-10-28"
+    },
+    "claude-artifact": {
+      "label": "Claude artifact",
+      "ways": ["link"],
+      "mcp": null,
+      "handoffs": "The artifact URL, read with the Artifact tool",
+      "notes": "Your own artifact reads back as raw HTML; one shared with you reads back as a summary only. Ask its owner for edit access or an export",
+      "docs": "",
+      "checked": "2026-10-28"
+    }
+  }
+}

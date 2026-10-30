@@ -1,0 +1,35 @@
+{
+  "layout": 2,
+  "files": {
+    "AGENTS.md": "shared",
+    "CLAUDE.md": "shared",
+    "CLAUDE.local.md": "local",
+    "context/overview.md": "always",
+    "context/architecture.md": "always",
+    "context/standards.md": "always",
+    "context/security.md": "always",
+    "context/libraries.md": "always",
+    "context/roadmap.md": "always",
+    "context/specs/.gitkeep": "always",
+    "context/reviews/.gitkeep": "always",
+    "context/known-issues.md": "existing",
+    "context/contracts.md": "multi-surface",
+    "context/designs/README.md": "ui",
+    "context/ui/tokens.md": "ui",
+    "context/ui/rules.md": "ui",
+    "context/ui/registry.md": "ui"
+  },
+  "v1": {
+    "context/project-overview.md": "context/overview.md",
+    "context/code-standards.md": "context/standards.md",
+    "context/security-rules.md": "context/security.md",
+    "context/library-docs.md": "context/libraries.md",
+    "context/build-plan.md": "context/roadmap.md",
+    "context/progress-tracker.md": "context/roadmap.md",
+    "context/ui-tokens.md": "context/ui/tokens.md",
+    "context/ui-rules.md": "context/ui/rules.md",
+    "context/ui-registry.md": "context/ui/registry.md",
+    "context/plans/": "context/specs/",
+    "memory.md": "context/session.md"
+  }
+}
