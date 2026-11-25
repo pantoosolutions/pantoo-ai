@@ -8,8 +8,9 @@ Recommended: Opus · high to set the look and for the first screens; Sonnet · m
 that reuse the registry.
 
 One generator, one reviewer: **taste** shapes website pages, **impeccable** judges every screen,
-**ui-ux-pro-max** is a reference to look things up in. App screens are built from `DESIGN.md` and
-`context/ui/`, without taste. Never ask two tools to build the same screen.
+**ui-ux-pro-max** is a reference to look things up in. App screens, a mobile app's native screens
+included, are built from `DESIGN.md` and `context/ui/`, without taste. Never ask two tools to build
+the same screen.
 
 ## Who owns what
 
@@ -31,7 +32,8 @@ Check, in order, and run the first step that applies (an argument names the step
 
 1. Not a UI project (`.pantoo.json` → `ui: false`) → say so and stop.
 2. impeccable or taste not installed (no `impeccable` or `design-taste-frontend` skill at user or
-   project scope) → `npx pantoo-ai add design`, then restart Claude Code.
+   project scope) → `npx pantoo-ai add design`, then restart Claude Code. A `mobile` project needs
+   only impeccable, unless it also has website pages.
 3. `context/overview.md` still has placeholders → `/pantoo:start-project` first: the product comes
    before the look.
 4. No `PRODUCT.md` → `/impeccable init`, telling it to take the answers from `context/overview.md` and
@@ -61,7 +63,9 @@ nothing is overwritten wholesale, and nothing is written back to the source.
 2. Build it with `/pantoo:build-feature`, UI-first with mock data, against `DESIGN.md`, `PRODUCT.md`
    and `context/ui/`. Don't name impeccable here. A website page (marketing, brand, landing, a web
    app's public page) → read [references/taste.md](references/taste.md) first; taste applies while
-   generating. An app screen → no taste.
+   generating. An app screen → no taste. A native mobile screen (kind `mobile`) → no taste either:
+   follow the platform's patterns (navigation, safe areas, system type sizes) where `DESIGN.md` is
+   silent, and check it on a simulator or emulator; impeccable reviews it like any screen.
 3. `/pantoo:capture-ui` for each new component.
 4. **review** below, then commit.
 

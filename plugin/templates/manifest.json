@@ -15,6 +15,7 @@
     "context/known-issues.md": "existing",
     "context/contracts.md": "multi-surface",
     "context/copy.md": "ui",
+    "context/automations.md": "automation",
     "context/designs/README.md": "ui",
     "context/ui/tokens.md": "ui",
     "context/ui/rules.md": "ui",

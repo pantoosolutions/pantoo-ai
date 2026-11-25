@@ -55,3 +55,11 @@ test('a project without a UI owes no copy.md', () => {
   fs.writeFileSync(path.join(dir, '.pantoo.json'), '{"ui":false}');
   assert.equal(state(dir).mode, 'done');
 });
+
+test('a finished automation project without automations.md gets the add-automations mode', () => {
+  const dir = project('Rules: v99\n');
+  fs.writeFileSync(path.join(dir, '.pantoo.json'), '{"kind":"automation","ui":false}');
+  assert.equal(state(dir).mode, 'add automations');
+  fs.writeFileSync(path.join(dir, 'context', 'automations.md'), '# Automations\n');
+  assert.equal(state(dir).mode, 'done');
+});

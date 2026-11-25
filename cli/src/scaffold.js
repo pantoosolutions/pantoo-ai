@@ -15,7 +15,9 @@ export const KINDS = {
   marketing: { label: 'Marketing site, landing', ui: true, companions: ['brand', 'banner-design'] },
   brand: { label: 'Brand or identity work', ui: true, companions: ['brand', 'design'] },
   pitch: { label: 'Pitch or presentation', ui: true, companions: ['slides'] },
+  mobile: { label: 'Mobile app: iOS, Android, cross-platform', ui: true, companions: ['design-system'] },
   backend: { label: 'API, CLI, backend only', ui: false, companions: [] },
+  automation: { label: 'AI assistant, agents, workflow automation', ui: false, companions: [] },
 };
 
 const CODE_MARKERS = [
@@ -61,6 +63,7 @@ function applies(rule, choices) {
   if (rule === 'existing') return choices.existing;
   if (rule === 'multi-surface') return choices.multiSurface;
   if (rule === 'ui') return choices.ui;
+  if (rule === 'automation') return choices.kind === 'automation';
   return false;
 }
 
@@ -79,6 +82,12 @@ function render(rel, choices) {
     text = text.replace(
       '| `context/specs/`',
       '| `context/known-issues.md` | Debt and deviations; read before copying a pattern |\n| `context/specs/`',
+    );
+  }
+  if ((rel === 'AGENTS.md' || rel === 'CLAUDE.local.md') && choices.kind === 'automation') {
+    text = text.replace(
+      '| `context/specs/`',
+      '| `context/automations.md` | Each workflow and agent: steps, tools, approvals, tests |\n| `context/specs/`',
     );
   }
   return text;

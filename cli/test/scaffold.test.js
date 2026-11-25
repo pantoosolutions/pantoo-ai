@@ -171,3 +171,46 @@ test('doctor warns a UI project without copy.md, and only a UI project', () => {
   assert.ok(!fs.existsSync(path.join(backend, 'context/copy.md')));
   assert.equal(copy(backend), undefined);
 });
+
+test('mobile: UI files and the design-system companion, no automations.md', () => {
+  const dir = tmp();
+  scaffold(dir, { ...base, kind: 'mobile' });
+  assert.ok(fs.existsSync(path.join(dir, 'context/ui/tokens.md')));
+  assert.ok(fs.existsSync(path.join(dir, 'context/copy.md')));
+  assert.ok(!fs.existsSync(path.join(dir, 'context/automations.md')));
+  assert.match(read(dir, 'CLAUDE.md'), /## Design/);
+  assert.deepEqual(JSON.parse(read(dir, '.pantoo.json')).companions, ['design-system']);
+});
+
+test('automation: automations.md and its AGENTS row, no UI files or companions', () => {
+  const dir = tmp();
+  scaffold(dir, { ...base, kind: 'automation', ui: false });
+  assert.match(read(dir, 'context/automations.md'), /## \{\{NAME\}\}[\s\S]*### Tools and credentials[\s\S]*### Tests/);
+  assert.match(read(dir, 'AGENTS.md'), /\| `context\/automations\.md` \|[^\n]*\n\| `context\/specs\/`/);
+  assert.ok(!fs.existsSync(path.join(dir, 'context/ui')));
+  assert.ok(!fs.existsSync(path.join(dir, 'context/copy.md')));
+  assert.doesNotMatch(read(dir, 'CLAUDE.md'), /## Design/);
+  const record = JSON.parse(read(dir, '.pantoo.json'));
+  assert.equal(record.kind, 'automation');
+  assert.deepEqual(record.companions, []);
+  const local = tmp();
+  spawnSync('git', ['init', '-q', local]);
+  scaffold(local, { ...base, kind: 'automation', ui: false, local: true, share: false });
+  assert.match(read(local, 'CLAUDE.local.md'), /`context\/automations\.md`/);
+  const web = tmp();
+  scaffold(web, base);
+  assert.doesNotMatch(read(web, 'AGENTS.md'), /automations/);
+});
+
+test('doctor warns an automation project without automations.md, and only that kind', () => {
+  const check = (dir) => projectChecks(dir, profile(tmp())).find((c) => c.what === 'context/automations.md');
+  const dir = tmp();
+  scaffold(dir, { ...base, kind: 'automation', ui: false });
+  assert.equal(check(dir), undefined);
+  fs.rmSync(path.join(dir, 'context/automations.md'));
+  assert.equal(check(dir).level, 'warn');
+  assert.match(check(dir).note, /start-project/);
+  const backend = tmp();
+  scaffold(backend, { ...base, kind: 'backend', ui: false });
+  assert.equal(check(backend), undefined);
+});

@@ -7,8 +7,8 @@ up any project.
 - **A plugin, `pantoo`:** 13 skills for the whole loop (intake, roadmap, specs, build, verify, review,
   tests, docs) plus four agents and two hooks.
 - **Context templates:** an `AGENTS.md` index and a `context/` folder (overview, architecture, standards,
-  security rules, roadmap, specs, reviews, and for UI projects the design and copy files) that every
-  skill reads and updates.
+  security rules, roadmap, specs, reviews, the design and copy files for UI projects, and a record of
+  each workflow and agent for automation projects) that every skill reads and updates.
 - **Rules and settings:** model and token routing, library docs through ctx7, web access cheapest tool
   first, and no AI attribution in commits and PRs. Each one is optional.
 - **A CLI, `npx pantoo-ai`:** installs, updates, checks and removes all of the above, on macOS, Linux
@@ -47,7 +47,8 @@ In the project folder, new or existing:
 npx pantoo-ai new
 ```
 
-`new` asks the project type (`web-app`, `marketing`, `brand`, `pitch`, `backend`), whether code
+`new` asks the project type (`web-app`, `marketing`, `brand`, `pitch`, `mobile`, `backend`,
+`automation`), whether code
 already exists, and whether several apps share a contract. It then copies only the context files that
 apply. It never overwrites anything. Then, in Claude Code:
 

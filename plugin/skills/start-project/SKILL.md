@@ -11,7 +11,7 @@ propagates into every later session.
 
 Run `node "${CLAUDE_PLUGIN_ROOT}/skills/start-project/scripts/state.mjs"` in the project root first. It
 prints the context layout, the project's and the kit's security rules version, the placeholder
-lines, a UI project's missing `copy.md` and a `mode`. Use it; never re-derive these by grep. Then check,
+lines, a missing `copy.md` or `automations.md` and a `mode`. Use it; never re-derive these by grep. Then check,
 in the project root:
 
 - `.pantoo.json`: the choices `npx pantoo-ai new` saved (kind, ui, existing, multiSurface, local).
@@ -35,7 +35,7 @@ go on unless they object. An argument (`new`, `existing`, `migrate`) overrides t
 | v1 `context/`, or `memory.md` from the old `remember` skill | **migrate**: [references/migrate.md](references/migrate.md), then resume |
 | v2 with older security rules | **update rules**: [references/migrate.md](references/migrate.md) → Security rules, then resume or finish |
 | v2 with placeholders left | **resume**: continue the intake at the first phase whose file still has them |
-| v2 UI project without `context/copy.md`, no placeholders | **add copy**: [references/site-copy.md](references/site-copy.md), then finish |
+| v2, no placeholders, UI without `context/copy.md` or automation without `context/automations.md` | **add copy**: [references/site-copy.md](references/site-copy.md), or **add automations**: [references/automations.md](references/automations.md); then finish |
 | v2, no placeholders | Done already. Say so, and point to `/pantoo:plan-roadmap` |
 | No `context/`, code present | scaffold (step 2), then **existing**: [references/intake-existing.md](references/intake-existing.md) |
 | No `context/`, no code | scaffold (step 2), then **new**: [references/intake-new.md](references/intake-new.md) |
@@ -49,14 +49,14 @@ files".
 Do what `npx pantoo-ai new` does, from `${CLAUDE_PLUGIN_ROOT}/templates/`:
 
 1. Ask in one message, each with your recommended answer: project kind (`web-app`, `marketing`,
-   `brand`, `pitch`, `backend`); several apps sharing a schema or API (default no); keep the kit
-   out of git (recommend yes only when tracked `CLAUDE.md`/`AGENTS.md` exist and the user can't
-   commit kit files to this repo).
+   `brand`, `pitch`, `mobile`, `backend`, `automation`); several apps sharing a schema or API (an
+   app and its web dashboard; default no); keep the kit out of git (recommend yes only when
+   tracked `CLAUDE.md`/`AGENTS.md` exist and the user can't commit kit files to this repo).
 2. Copy each file in `manifest.json` → `files` whose rule applies: `always`; `shared` unless
    local; `local` if local; `existing` if there is code; `multi-surface`; `ui` unless the kind is
-   `backend`. **Never overwrite a file that exists.**
+   `backend` or `automation`; `automation` for that kind. **Never overwrite a file that exists.**
 3. In the copies: replace `{{PROJECT_NAME}}`. In `CLAUDE.md` / `CLAUDE.local.md`, delete the
-   `<!-- UI projects only … -->` line, and for `backend` everything after it too.
+   `<!-- UI projects only … -->` line, and for `backend` and `automation` everything after it too.
 4. Not local: add `context/session.md` to `.gitignore`, and merge `extraKnownMarketplaces` +
    `enabledPlugins` for `pantoo@pantoo-ai` into `.claude/settings.json` (keep every existing key).
    Local: append each path in `manifest.json` → `kitPaths` to

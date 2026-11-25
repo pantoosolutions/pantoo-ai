@@ -42,6 +42,14 @@ Start it in the background, then for each behaviour:
   the project's e2e folder if it has one, otherwise outside the repo. Playwright missing → ask
   before adding it; it's a dependency (`standards.md`). Once agreed, set it up with
   [references/browser-checks.md](references/browser-checks.md).
+- **Mobile screen:** the e2e tool `standards.md` → Testing names (Maestro, Detox, XCUITest,
+  Espresso) on a simulator or emulator, through the `verifier` agent; Playwright only for the
+  project's web build. None named → ask before adding one, as for Playwright.
+- **Automation:** for each workflow or agent the change touches, run every case in
+  `context/automations.md` → Tests, the way its Run with line says. Record the output and every
+  tool it called. A case fails when Must hold isn't true, a Must not happened, it called a tool its
+  entry doesn't list, or it went past an approval point without one. No safe way to run it (real
+  sends, real charges) → blocked; never fire a live side effect to get evidence.
 - **API:** send the request; record the status and the key fields of the body.
 - **CLI or job:** run it; record the exit code and the output that matters.
 - **Data:** query the live schema or rows, not the migration file.

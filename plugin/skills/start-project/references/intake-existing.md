@@ -68,6 +68,7 @@ Phase 1  Product                 context/overview.md
 Phase 2  Architecture as built   context/architecture.md
 Phase 3  Contracts               context/contracts.md (multi-surface only)
 Phase 4  Design as built         context/ui/tokens.md, rules.md, registry.md, copy.md (UI only)
+         or automations as built  context/automations.md (automation only)
 Phase 5  Standards as practised  context/standards.md, security.md, libraries.md
 Phase 6  Debt                    context/known-issues.md
 Phase 7  Verification            re-ground citations, contradiction sweep, coverage
@@ -142,12 +143,16 @@ goes to `known-issues.md`.
 
 5. The site copy, `copy.md`: [site-copy.md](site-copy.md).
 
+An automation project has no UI phase: its Phase 4 is `automations.md`, from the exports, prompts
+and agent config, following [automations.md](automations.md).
+
 ### Phase 5: Standards as practised
 
 - `standards.md`: enforced rules first (formatter, linter, type strictness, CI), written verbatim.
   Then unenforced conventions with counts ("18 of 21 modules use named exports"), each with a
   verdict. Approved dependencies from the manifest, each marked keep / on the way out / don't
-  add more like this. Testing section from the test setup actually present.
+  add more like this. Testing section from the test setup actually present. Automations section
+  from the exports and prompts found (automation projects; any other kind deletes it).
 - `security.md`: audit against the security rules and fill Project mapping from evidence
   (mechanism, `path`, `done` / `partial` / `todo` / `n/a — reason`). First: client-side or
   committed secrets (1–3), tables without RLS (4), endpoints with no server-side auth (6), raw

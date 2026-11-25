@@ -55,6 +55,12 @@ Spawn the reviewer with the base, the diff command, the changed files, the spec 
 >   printed, without turning `\` into `/`. Follow the value: the literal may be lines away.
 > - **Exit:** `process.exit()` in a script while a request, stream or other work may be pending.
 > - **Context:** code that reads `context/`, or a comment that cites a path in it.
+> An automation project (`.pantoo.json` → `kind: "automation"`): for each workflow or agent the diff
+> touches, check it against its `context/automations.md` entry (System layer). It reaches only the
+> tools and credentials listed, with no wider access; every approval point is still in the path;
+> nothing on its Never list is now possible; prompts sit in versioned files and model IDs in the one
+> config; an exported workflow holds no credential value. An entry the diff made stale is a finding.
+> `security.md` rule 25 always applies.
 > End with a verdict: approve, approve with nits, changes requested, or blocked.
 
 With `release`, add: "Release pass: check every rule in `security.md`, the extended parts of a

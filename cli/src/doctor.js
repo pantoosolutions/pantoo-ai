@@ -227,6 +227,7 @@ export function lineEndingChecks(dir, { local = false } = {}) {
 export const rulesVersion = (text) => Number(text.match(/^Rules: v(\d+)/m)?.[1] ?? 1);
 const SECURITY = 'context/security.md';
 const COPY = 'context/copy.md';
+const AUTOMATIONS = 'context/automations.md';
 const KIT_RULES = rulesVersion(fs.readFileSync(path.join(templatesDir, SECURITY), 'utf8'));
 
 // The pattern is shared with start-project's state script, so the two agree.
@@ -251,9 +252,10 @@ export function projectChecks(dir, prof) {
   if (found.v1.length || project.layout < MANIFEST.layout) {
     add('warn', 'context layout', `v${project.layout}, the kit writes v${MANIFEST.layout}; run /pantoo:start-project to migrate`);
   }
-  // A v1 context gets the file when it migrates, and the layout warning already covers that.
-  if (project.ui && !found.v1.length && project.layout >= MANIFEST.layout && fs.existsSync(path.join(dir, 'context')) && !fs.existsSync(path.join(dir, COPY))) {
-    add('warn', COPY, 'missing; run /pantoo:start-project to add it');
+  // A v1 context gets these files when it migrates, and the layout warning already covers that.
+  const owed = !found.v1.length && project.layout >= MANIFEST.layout && fs.existsSync(path.join(dir, 'context'));
+  for (const [rel, due] of [[COPY, project.ui], [AUTOMATIONS, project.kind === 'automation']]) {
+    if (owed && due && !fs.existsSync(path.join(dir, rel))) add('warn', rel, 'missing; run /pantoo:start-project to add it');
   }
   if (fs.existsSync(path.join(dir, 'memory.md'))) add('warn', 'memory.md', 'v1 session file; save-session uses context/session.md');
 

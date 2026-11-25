@@ -25,7 +25,9 @@ run the tools' own updaters, or the pins drift.
 | Marketing site, landing | `brand`, `banner-design` |
 | Brand or identity work | `brand`, `design` (needs a Gemini API key) |
 | Pitch or presentation | `slides` |
+| Mobile app: iOS, Android, cross-platform | `design-system` |
 | API, CLI, backend only | none |
+| AI assistant, agents, workflow automation | none |
 
 They live in the project's `.claude/skills/` and are committed, so teammates get the same set. They
 trigger on words like "design", "brand" or "slides", which is why they aren't global. Add one later
@@ -72,7 +74,7 @@ token export, a brand kit, a Claude Design handoff, a live site) is a **source**
 - **One generator, one reviewer.** taste builds website pages, impeccable reviews every screen.
   Asking both to build one screen pulls in two directions.
 - **App screens skip taste.** Dashboards, settings and other screens people work in are built from
-  `DESIGN.md` and `context/ui/`.
+  `DESIGN.md` and `context/ui/`. So are a mobile app's native screens, which impeccable reviews.
 - **taste checks its own pages.** While in use it adds a Stop hook that tests the page in a headless
   browser and can send Claude back to fix it. It needs Node 22+ and Chrome, Edge or Chromium, and
   keeps its state in `.taste-skill/` (never committed). `DESIGN.md` still owns the values.

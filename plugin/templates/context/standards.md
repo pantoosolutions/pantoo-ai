@@ -129,6 +129,24 @@ The build agent operates as a senior engineer:
 
 ---
 
+## Automations
+
+> 🧭 GUIDANCE: Automation projects only (agents, AI assistants, workflow automation); delete this
+> section otherwise. Fill the paths from the architecture phase.
+
+- **Workflow exports are committed** (n8n JSON, Make blueprints, agent configs) at
+  `{{EXPORTS_PATH}}`, re-exported after every change in the tool. An export holds credentials by
+  name only: no token in a node's headers, URL or body, and no pinned run data with real people's
+  data in it.
+- **Prompts live in versioned files** at `{{PROMPTS_PATH}}`, never typed inline in a workflow node
+  or a code string. Model IDs are set in one config file, `{{MODELS_CONFIG}}`.
+- **Model output is checked before it acts:** parsed against a schema, and a failed parse retries
+  or stops, never passes through (`security.md` rule 25).
+- **Test inputs** for `context/automations.md` → Tests live at `{{TEST_INPUTS_PATH}}`, outside
+  `context/`, with no real personal data.
+
+---
+
 ## Testing
 
 > 🧭 GUIDANCE: Read by `write-tests` and `verify-feature`. If the stack has no tests yet, record

@@ -24,7 +24,7 @@ the developer's OK, `git rm` the v1 files, scaffold v2 fresh (step 2), and run t
 
 | v1 | v2 | How |
 | --- | --- | --- |
-| `project-overview.md`, `code-standards.md`, `security-rules.md`, `library-docs.md` | `overview.md`, `standards.md`, `security.md`, `libraries.md` | Rename. Add the v2 template's missing sections (e.g. Testing in `standards.md`) as placeholders |
+| `project-overview.md`, `code-standards.md`, `security-rules.md`, `library-docs.md` | `overview.md`, `standards.md`, `security.md`, `libraries.md` | Rename. Add the v2 template's missing sections (e.g. Testing in `standards.md`) as placeholders; `standards.md` → Automations only for an automation project |
 | No `security-rules.md` (set up before it existed) | `security.md` | Copy the template, then audit it as in [intake-existing.md](intake-existing.md) Phase 5 (`security.md` bullet), read-only. A secret ever committed → tell the developer at once: rotate it first |
 | `ui-tokens.md`, `ui-rules.md`, `ui-registry.md` | `ui/tokens.md`, `ui/rules.md`, `ui/registry.md` | Rename |
 | `build-plan.md` + `progress-tracker.md` | `roadmap.md` | Merge, below |
@@ -72,7 +72,8 @@ old skills in `.claude/skills/{architect,imprint,review,recover,remember,find-do
 `# >>> personal claude context` block in `.git/info/exclude`. After approval, delete the skill
 copies and replace the block with the paths SKILL.md step 2 lists for local mode.
 
-A UI project also gets `context/copy.md`: [site-copy.md](site-copy.md).
+A UI project also gets `context/copy.md`: [site-copy.md](site-copy.md). An automation project gets
+`context/automations.md`: [automations.md](automations.md).
 
 Finish: write or update `.pantoo.json` with `"layout": 2`, then resume the intake (SKILL.md
 step 3) at the first file that still has placeholders.
