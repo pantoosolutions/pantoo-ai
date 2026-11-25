@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -69,8 +70,18 @@ export function slug(root) {
   return s.length <= 200 ? s : null;
 }
 
-// host/owner/repo: no scheme, no user info, no .git, lower case. ssh and https agree.
-export function normalRemote(url) {
+// The real hostname behind an ssh Host alias (`github.com-work` → `github.com`), from `ssh -G`,
+// which reads ~/.ssh/config and never connects. No ssh, or an odd name: the name as given.
+export function sshHostname(host, { config } = {}) {
+  if (!/^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(host)) return host;
+  const r = spawnSync('ssh', [...(config ? ['-F', config] : []), '-G', host], { encoding: 'utf8', timeout: 5000 });
+  const line = r.status === 0 && r.stdout.split(/\r?\n/).find((l) => l.startsWith('hostname '));
+  return line ? line.slice('hostname '.length).trim() : host;
+}
+
+// host/owner/repo: no scheme, no user info, no .git, lower case. ssh and https agree, and an ssh
+// Host alias counts as the host it points to.
+export function normalRemote(url, { resolveHost = sshHostname } = {}) {
   if (typeof url !== 'string' || !url.trim()) return null;
   const u = url.trim();
   let out;
@@ -78,12 +89,13 @@ export function normalRemote(url) {
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(u)) {
     try {
       const parsed = new URL(u);
-      out = parsed.protocol === 'file:' ? decodeURIComponent(parsed.pathname) : `${parsed.hostname}${parsed.pathname}`;
+      const host = /^(git\+)?ssh:$/i.test(parsed.protocol) ? resolveHost(parsed.hostname) : parsed.hostname;
+      out = parsed.protocol === 'file:' ? decodeURIComponent(parsed.pathname) : `${host}${parsed.pathname}`;
     } catch {
       return null;
     }
   } else if (scp && !/^[A-Za-z]$/.test(scp[1])) {
-    out = `${scp[1]}/${scp[2]}`;
+    out = `${resolveHost(scp[1])}/${scp[2]}`;
   } else {
     out = path.resolve(u); // a local path, as in a bare repo used as the remote
   }

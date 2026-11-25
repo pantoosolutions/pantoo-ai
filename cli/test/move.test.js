@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { doctor, repairLineEndings } from '../src/doctor.js';
-import { CLASSES, MoveStop, exportMove, filterPermissions, importMove, memoryDir, normalRemote, readMoveFolder, slug } from '../src/move.js';
+import { CLASSES, MoveStop, exportMove, filterPermissions, importMove, memoryDir, normalRemote, readMoveFolder, slug, sshHostname } from '../src/move.js';
 import { profile } from '../src/paths.js';
 import { MANIFEST, excludeKitPaths } from '../src/scaffold.js';
 
@@ -231,6 +231,26 @@ test('normalRemote: ssh, https and https with a token agree, and the token never
   const r = exp(f);
   assert.equal(r.manifest.git.remote, want);
   assert.ok(!read(path.join(f.to, 'move.json')).includes('ghp_secrettoken'));
+});
+
+test('normalRemote: an ssh Host alias counts as its real host, and https is never resolved', () => {
+  const alias = (h) => (h === 'github.com-work' ? 'github.com' : h);
+  for (const url of ['git@github.com-work:owner/repo.git', 'ssh://git@github.com-work/owner/repo.git', 'https://github.com/owner/repo']) {
+    assert.equal(normalRemote(url, { resolveHost: alias }), 'github.com/owner/repo', url);
+  }
+  const seen = [];
+  normalRemote('https://github.com-work/owner/repo', { resolveHost: (h) => (seen.push(h), h) });
+  assert.deepEqual(seen, []);
+});
+
+test('sshHostname reads the alias from an ssh config, and leaves odd names alone', (t) => {
+  if (spawnSync('ssh', ['-V']).error) return t.skip('no ssh');
+  const dir = tmp();
+  const config = path.join(dir, 'config');
+  put(config, 'Host github.com-work\n  HostName github.com\n  User git\n');
+  assert.equal(sshHostname('github.com-work', { config }), 'github.com');
+  assert.equal(sshHostname('gitlab.com', { config }), 'gitlab.com');
+  assert.equal(sshHostname('-oProxyCommand=x', { config }), '-oProxyCommand=x');
 });
 
 test('export stops inside the repo, on a non-empty folder, and before a push', () => {
