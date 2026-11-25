@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { hash, readIfExists, readJson, sameText, writeJson } from './files.js';
 import { kitRoot } from './paths.js';
 import { merge } from './settings.js';
@@ -241,10 +240,10 @@ function userChecks(prof, info, pythonFor) {
 // Tracked files that are CRLF on disk, split by what git holds for them. Files whose attributes
 // ask for CRLF (batch files) are right as they are. Null when git can't list them.
 export function crlfFiles(dir) {
-  const r = spawnSync('git', ['-C', dir, 'ls-files', '--eol', '-z'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-  if (r.status !== 0) return null;
+  const r = git(dir, ['ls-files', '--eol', '-z']);
+  if (!r.ok) return null;
   const found = { checkout: [], index: [] };
-  for (const entry of r.stdout.split('\0')) {
+  for (const entry of r.out.split('\0')) {
     const [info, file] = entry.split('\t');
     if (!/\sw\/crlf\s/.test(info) || info.includes('eol=crlf')) continue;
     found[info.startsWith('i/lf ') ? 'checkout' : 'index'].push(file);
@@ -258,7 +257,7 @@ export function lineEndingChecks(dir, { local = false } = {}) {
   const checks = [];
   const add = (level, what, note = '') => checks.push({ level, what, note });
   // In a monorepo the project can sit below the file that covers it.
-  const top = spawnSync('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' }).stdout?.trim();
+  const top = git(dir, ['rev-parse', '--show-toplevel']).out.trim();
   const has = [dir, top].some((d) => d && fs.existsSync(path.join(d, '.gitattributes')));
   // A local-only setup is in someone else's repo, which isn't asked to commit a file.
   if (!has && !local) add('warn', '.gitattributes', 'none; add one with `* text=auto eol=lf` and commit it');
@@ -367,7 +366,7 @@ export function projectChecks(dir, prof) {
   }
   if (found.isRepo) checks.push(...lineEndingChecks(dir, project));
   if (found.isRepo && !project.local) {
-    const ignored = spawnSync('git', ['-C', dir, 'check-ignore', '-q', 'context/session.md']).status === 0;
+    const ignored = git(dir, ['check-ignore', '-q', '--', 'context/session.md']).ok;
     add(ignored ? 'ok' : 'warn', 'context/session.md', ignored ? 'gitignored' : 'not gitignored; personal session notes would be committed');
   }
   return checks;

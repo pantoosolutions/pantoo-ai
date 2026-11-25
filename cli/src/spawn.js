@@ -1,11 +1,12 @@
 import fs from 'node:fs';
 import os from 'node:os';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 // One git call: run from the home folder, so Windows never finds a git.exe that a clone put in the
 // repo. Pathspecs are literal. Returns { ok, out, err }.
 export function git(dir, args, { cwd = os.homedir(), input } = {}) {
-  const r = spawnSync('git', ['--literal-pathspecs', '-C', dir, ...args], { cwd: fs.existsSync(cwd) ? cwd : os.homedir(), input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  const r = spawnSync('git', ['--literal-pathspecs', '-C', path.resolve(dir), ...args], { cwd: fs.existsSync(cwd) ? cwd : os.homedir(), input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   return { ok: r.status === 0, out: r.status === 0 ? r.stdout : '', err: r.stderr ?? String(r.error ?? '') };
 }
 
@@ -15,9 +16,21 @@ export function winQuote(a) {
   return /^[\w@+=:,./\\#-]+$/.test(a) ? a : `"${a}"`;
 }
 
+// Windows looks for a program in the current folder before PATH, so a clone could bring its own
+// claude.cmd or curl.bat. Commands run from the home folder unless a caller passes `cwd`, and the
+// variable stops cmd.exe searching the current folder, for them and for the programs they start.
+export function spawnOptions(opts = {}) {
+  return {
+    encoding: 'utf8',
+    ...opts,
+    cwd: opts.cwd ?? os.homedir(),
+    env: { ...(opts.env ?? process.env), NoDefaultCurrentDirectoryInExePath: '1' },
+  };
+}
+
 // On Windows, npm CLIs (claude, npx) are .cmd shims that only start through the shell, and Node
 // passes a shell command's arguments unquoted. So there the command goes as one quoted string.
 export function spawn(cmd, args, opts = {}) {
-  if (process.platform !== 'win32') return spawnSync(cmd, args, { encoding: 'utf8', ...opts });
-  return spawnSync([cmd, ...args].map(winQuote).join(' '), { encoding: 'utf8', ...opts, shell: true });
+  if (process.platform !== 'win32') return spawnSync(cmd, args, spawnOptions(opts));
+  return spawnSync([cmd, ...args].map(winQuote).join(' '), { ...spawnOptions(opts), shell: true });
 }

@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { readIfExists, readJson, writeFile, writeJson } from './files.js';
 import { kitRoot } from './paths.js';
 import { mergeSettings } from './settings.js';
+import { git as runGit } from './spawn.js';
 
 export const templatesDir = path.join(kitRoot, 'plugin', 'templates');
 export const MANIFEST = readJson(path.join(templatesDir, 'manifest.json'), null);
@@ -33,8 +33,8 @@ const OTHER_CONTEXT = [
 const exists = (dir, rel) => fs.existsSync(path.join(dir, rel));
 
 function git(dir, args) {
-  const r = spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
-  return r.status === 0 ? r.stdout.trim() : null;
+  const r = runGit(dir, args);
+  return r.ok ? r.out.trim() : null;
 }
 
 export const isTracked = (dir, rel) => Boolean(git(dir, ['ls-files', '--', rel]));

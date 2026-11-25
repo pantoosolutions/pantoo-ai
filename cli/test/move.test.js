@@ -334,6 +334,35 @@ test('slug and memoryDir', () => {
   assert.equal(memoryDir(prof, '/x/y', { env: NO_ENV }).via, 'computed');
 });
 
+test('memoryDir ignores a memory folder the repo names, and follows your own local one', () => {
+  const prof = profile(tmp());
+  const setting = JSON.stringify({ autoMemoryDirectory: '~/.claude/rules' });
+  const mine = path.join(prof.home, '.claude', 'rules');
+  const repo = (files, track = []) => {
+    const root = tmp();
+    gitIn(root, 'init', '-q');
+    for (const f of files) put(path.join(root, f), setting);
+    if (track.length) gitIn(root, 'add', '-f', '--', ...track);
+    return memoryDir(prof, root, { env: NO_ENV });
+  };
+  assert.equal(repo(['.claude/settings.local.json']).dir, mine);
+  assert.equal(repo(['.claude/settings.json']).via, 'computed');
+  assert.equal(repo(['.claude/settings.local.json'], ['.claude/settings.local.json']).via, 'computed');
+  assert.equal(repo(['.Claude/Settings.local.json'], ['.Claude/Settings.local.json']).via, 'computed');
+  assert.equal(memoryDir(prof, tmp(), { env: NO_ENV }).via, 'computed');
+
+  const linked = tmp();
+  gitIn(linked, 'init', '-q');
+  put(path.join(linked, 'elsewhere', 'settings.local.json'), setting);
+  fs.symlinkSync(path.join(linked, 'elsewhere'), path.join(linked, '.claude'), 'junction');
+  assert.equal(memoryDir(prof, linked, { env: NO_ENV }).via, 'computed');
+
+  // No repo to ask: not trusted.
+  const bare = tmp();
+  put(path.join(bare, '.claude', 'settings.local.json'), setting);
+  assert.equal(memoryDir(prof, bare, { env: NO_ENV }).via, 'computed');
+});
+
 test('memoryDir finds a folder Claude Code named differently from its transcript', () => {
   const prof = profile(tmp());
   const root = path.join(tmp(), `${'d'.repeat(210)}`);

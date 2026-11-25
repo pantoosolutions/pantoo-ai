@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -6,7 +5,7 @@ import { backup, lf, readJson, stamp, writeFile, writeJson } from './files.js';
 import { repairLineEndings } from './doctor.js';
 import { MANIFEST, PROJECT_FILE, excludeKitPaths, excludeLocal } from './scaffold.js';
 import { plain, validSecrets } from './secrets.js';
-import { git as gitRaw } from './spawn.js';
+import { git as gitRaw, spawn } from './spawn.js';
 import { VERSION } from './self-update.js';
 
 // D31 + M1–M8 (p8-step14-design.md): move a project's private state to a new clone.
@@ -76,7 +75,7 @@ export function slug(root) {
 // which reads ~/.ssh/config and never connects. No ssh, or an odd name: the name as given.
 export function sshHostname(host, { config } = {}) {
   if (!/^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(host)) return host;
-  const r = spawnSync('ssh', [...(config ? ['-F', config] : []), '-G', host], { encoding: 'utf8', timeout: 5000 });
+  const r = spawn('ssh', [...(config ? ['-F', config] : []), '-G', host], { timeout: 5000 });
   const line = r.status === 0 && r.stdout.split(/\r?\n/).find((l) => l.startsWith('hostname '));
   return line ? line.slice('hostname '.length).trim() : host;
 }
@@ -155,33 +154,42 @@ function scanProjects(claudeDir, root) {
   return null;
 }
 
+// As Claude Code does: settings.local.json is the repo's, not yours, when git tracks it (or
+// `.claude` itself) or `.claude` is a symlink. When git can't say, it counts as the repo's.
+function repoSupplied(g, root) {
+  try {
+    if (fs.lstatSync(path.join(root, '.claude')).isSymbolicLink()) return true;
+  } catch { return false; } // no .claude folder
+  const tracked = g(root, ['ls-files', '-z']);
+  // Compared without case: macOS and Windows open `.Claude/…` by either name.
+  return !tracked.ok || tracked.out.split('\0').some((f) => ['.claude', SETTINGS_LOCAL].includes(f.toLowerCase()));
+}
+
 // M7: where Claude Code keeps this project's memory on this machine.
-// Returns { dir, via, shared, exists } or { dir: null, via, note }.
+// Returns { dir, via, exists, note? } or { dir: null, via, note }.
 export function memoryDir(prof, root, { env = process.env } = {}) {
-  // Claude Code's precedence: local over project over user.
-  const sources = [
-    ['local', path.join(root, SETTINGS_LOCAL)],
-    ['project', path.join(root, '.claude', 'settings.json')],
-    ['user', path.join(prof.claudeDir, 'settings.json')],
-  ];
+  // Local over user. A folder the repo names is never used: Claude Code ignores it too, and
+  // following it would copy or overwrite whatever notes it points at.
+  const sources = [['user', path.join(prof.claudeDir, 'settings.json')]];
+  if (!repoSupplied(makeGit(prof), root)) sources.unshift(['local', path.join(root, SETTINGS_LOCAL)]);
   for (const [scope, file] of sources) {
     const dir = memoryFromSetting(settingsAt(file).autoMemoryDirectory, prof.home);
-    if (dir) return { dir, via: `autoMemoryDirectory (${scope})`, shared: scope === 'project', exists: fs.existsSync(dir) };
+    if (dir) return { dir, via: `autoMemoryDirectory (${scope})`, exists: fs.existsSync(dir) };
   }
   if (env.CLAUDE_CONFIG_DIR && env.CLAUDE_CODE_PROJECT_DIR_NAME && /^[\w.-]+$/.test(env.CLAUDE_CODE_PROJECT_DIR_NAME)) {
     const dir = path.join(prof.claudeDir, 'projects', env.CLAUDE_CODE_PROJECT_DIR_NAME, 'memory');
-    return { dir, via: 'CLAUDE_CODE_PROJECT_DIR_NAME', shared: false, exists: fs.existsSync(dir) };
+    return { dir, via: 'CLAUDE_CODE_PROJECT_DIR_NAME', exists: fs.existsSync(dir) };
   }
   const name = slug(root);
   const computed = name && path.join(prof.claudeDir, 'projects', name, 'memory');
-  if (computed && fs.existsSync(computed)) return { dir: computed, via: 'computed', shared: false, exists: true };
+  if (computed && fs.existsSync(computed)) return { dir: computed, via: 'computed', exists: true };
   const found = scanProjects(prof.claudeDir, root);
   if (found) {
     const dir = path.join(prof.claudeDir, 'projects', found, 'memory');
     const note = name && found !== name ? 'Claude Code names this folder differently from the kit; report it' : '';
-    return { dir, via: 'scan', shared: false, exists: fs.existsSync(dir), note };
+    return { dir, via: 'scan', exists: fs.existsSync(dir), note };
   }
-  if (computed) return { dir: computed, via: 'computed', shared: false, exists: false };
+  if (computed) return { dir: computed, via: 'computed', exists: false };
   return { dir: null, via: 'none', note: 'the path is over 200 characters; open Claude Code once in this project, then run import again' };
 }
 
@@ -264,7 +272,7 @@ export function exportMove({ prof, dir, to, env = process.env, now = new Date() 
 
   const files = carried(g, root);
   const mem = memoryDir(prof, root, { env });
-  const notes = mem.shared ? [] : memoryFiles(mem.dir);
+  const notes = memoryFiles(mem.dir);
   checkCaps([...files.map((f) => ({ ...f, label: f.rel })), ...notes.map((m) => ({ ...m, label: `memory/${m.name}` }))]);
 
   const settings = settingsAt(path.join(root, SETTINGS_LOCAL));
@@ -304,8 +312,7 @@ export function exportMove({ prof, dir, to, env = process.env, now = new Date() 
   writeJson(path.join(target, 'move.json'), manifest);
 
   lines.push(`✓ ${files.length} file(s): ${files.map((f) => f.rel).join(', ') || 'none'}`);
-  if (mem.shared) lines.push(`✓ memory is in ${mem.dir}, shared by the project's autoMemoryDirectory; not copied`);
-  else lines.push(notes.length ? `✓ ${notes.length} memory note(s) from ${mem.dir}` : '✓ no project memory on this machine');
+  lines.push(notes.length ? `✓ ${notes.length} memory note(s) from ${mem.dir}` : '✓ no project memory on this machine');
   if (mem.note) lines.push(`! ${mem.note}`);
   lines.push(`✓ ${count(perms.keep)} permission rule(s)${perms.left.length + perms.secret ? ` (${perms.left.length + perms.secret} left out: ${perms.left.length} name this machine's paths, ${perms.secret} may hold a secret)` : ''}`);
   if (secrets.length) lines.push(`✓ secrets to set up on the new machine: ${secrets.map((s) => s.name).join(', ')}`);
@@ -470,8 +477,7 @@ export async function importMove({ prof, dir, folder, allow, take = [], ask = nu
 
   if (m.memory.length) {
     const mem = memoryDir(prof, root, { env });
-    if (mem.shared) lines.push(`✓ memory: skipped; the project's autoMemoryDirectory shares it (${mem.dir})`);
-    else if (!mem.dir) lines.push(`! memory: skipped; ${mem.note}`);
+    if (!mem.dir) lines.push(`! memory: skipped; ${mem.note}`);
     else {
       if (mem.note) lines.push(`! ${mem.note}`);
       fs.mkdirSync(mem.dir, { recursive: true });
