@@ -11,7 +11,8 @@ they haven't noticed they need to make. A good intake leaves the idea clearer th
 ```
 Phase 0  Orientation           the idea in one sentence, confirmed
 Phase 1  Product               context/overview.md
-Phase 2  Design (UI only)      context/ui/tokens.md, context/ui/rules.md
+Phase 2  Design (UI only)      context/ui/tokens.md, context/ui/rules.md, context/copy.md
+         or Automations         context/automations.md (automation only)
 Phase 3  Architecture          context/architecture.md
 Phase 4  Standards             context/standards.md, context/security.md, context/libraries.md
 Phase 5  Review                read everything back
@@ -31,7 +32,8 @@ Spend the effort on **Core User Flow** (concrete enough to build a clickable pro
 the **scope lists**. If they list fifteen features, help find the four that make v1 and move the
 rest to out of scope. Rename "Pages" to "Commands", "Endpoints" or "Screens" when it isn't a
 multi-page app. The core data here is the concept and who may change it; the schema waits for
-Phase 3.
+Phase 3. A UI project also answers the motion, 3D and video questions in
+[catalog.md](catalog.md) → Motion and media first, each marked v1 or later.
 
 ## Phase 2: Design → `ui/tokens.md`, `ui/rules.md` (UI projects only)
 
@@ -50,6 +52,16 @@ Phase 3.
    (one accent, all borders from the border token, no hard-coded hex). Where the design is
    silent, propose a default and confirm.
 
+Then the site copy, `copy.md`: [site-copy.md](site-copy.md).
+
+A **mobile** project uses this phase too. Its screens follow the platform's patterns (navigation,
+safe areas, system type sizes) unless `DESIGN.md` says otherwise; record that in `rules.md`.
+
+## Phase 2: Automations → `automations.md` (automation projects only)
+
+No UI phase. Fill `automations.md` instead: [automations.md](automations.md). Phase 3 then picks the
+runtime that fits the steps recorded here, not the other way round.
+
 ## Phase 3: Architecture → `architecture.md`
 
 Layer by layer, with options and trade-offs: platform and shape, language and framework,
@@ -59,16 +71,40 @@ and may not do), data flow for the main operations, data model tied to Phase 1's
 model, and **invariants**: flat, checkable rules ("every query is scoped to the current user").
 Ask what would scare them if it silently broke; each answer is an invariant.
 
+A UI project picks its one motion library here, from Phase 1's motion answer, and writes it as an
+invariant. Once the stack is settled, read [catalog.md](catalog.md) and recommend its skills and
+plugins as it says.
+
+By kind, ask these too, each with a recommendation:
+
+- **Mobile:** platforms (iOS, Android, both) and the lowest OS version for each; the framework
+  (native Swift and Kotlin, React Native with Expo, Flutter), with the trade-offs; offline use and
+  push notifications; the store release path (TestFlight and App Store review, Play internal
+  testing, EAS or Fastlane) and whose developer accounts publish it. A web dashboard or an API
+  alongside the app → multi-surface: `contracts.md`.
+- **Automation:** where it runs (n8n cloud or self-hosted, a worker, the Claude Agent SDK, OpenClaw);
+  where prompts and model IDs live (versioned files, one config for the IDs); where credentials
+  are stored; how a run is logged and replayed. A web dashboard alongside → multi-surface.
+
 ## Phase 4: Standards → `standards.md`, `security.md`, `libraries.md`
 
 - `standards.md`: anchored to the stack, from real choices: loose types, export style, how errors
-  reach users, the bar for a new dependency, the test framework (Testing section).
+  reach users, the bar for a new dependency, the test framework (Testing section). Mobile: the
+  e2e tool and how it runs on a simulator or emulator (Maestro, Detox, XCUITest, Espresso), since
+  `verify-feature` uses it; Playwright only for a web build. Automation: keep the Automations
+  section and fill it from Phase 3; any other kind deletes it.
 - `security.md`: keep the rules as written; fill **Project mapping** with the mechanism per
   rule, `n/a — reason`, or `todo`. Five questions settle most rows: auth provider; which
   database and does the client reach it directly; any uploads; any endpoint that costs money
-  per call (AI, email, SMS); where it deploys and from which CI.
-- `libraries.md`: one section per library from Phase 3, on how **this** project uses it, plus
-  whether a skill or MCP server covers it. Keep the order-of-authority preamble.
+  per call (AI, email, SMS); where it deploys and from which CI. Automation: rule 25 is never
+  `n/a` ([automations.md](automations.md) → Then `security.md`).
+- `libraries.md`: one section per library from Phase 3, on how **this** project uses it. Keep the
+  **Check first:** line Phase 3 wrote from the catalog (`Skill: …`, `Plugin: …` or `none: ctx7`). Keep the order-of-authority preamble.
+- Secrets: ask which keys and tokens the project needs on a developer's machine (API keys, a
+  CLI login such as wrangler or gh, `.env.local`). Write each one to `.pantoo.json` → `secrets`
+  as `{ "name", "env" }` or `{ "name", "file" }` (`~/…` or a path in the project), with a `note`
+  on where to get it. Names and paths only, never a value. Mark those rows in `standards.md`'s
+  env table "secret, in .pantoo.json".
 
 ## Phase 5: Review
 
@@ -77,6 +113,8 @@ Read every file back and fix before summarising:
 - Routes in `overview.md` match `architecture.md`; every library in the stack has a
   `libraries.md` section and is in the approved dependencies; stack consistent across the three.
 - Tokens in `ui/tokens.md` match `DESIGN.md` and `ui/rules.md`.
+- Automation: every tool and credential in `automations.md` fits the stack in `architecture.md`,
+  and every step that leaves the system has an approval or a Never line.
 - Every security mapping row has a mechanism, `n/a — reason` or `todo`; list the `todo`s for
   `plan-roadmap`.
 - What's still fuzzy is `{{TBD: …}}`, not faked.

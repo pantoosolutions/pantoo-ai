@@ -1,0 +1,8 @@
+{
+  "extraKnownMarketplaces": {
+    "pantoo-ai": { "source": { "source": "github", "repo": "pantoosolutions/pantoo-ai" }, "autoUpdate": true }
+  },
+  "enabledPlugins": {
+    "pantoo@pantoo-ai": true
+  }
+}

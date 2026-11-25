@@ -47,17 +47,36 @@ Spawn the reviewer with the base, the diff command, the changed files, the spec 
 > 3. **Production:** errors handled; loading, empty and error states; edge cases; the `security.md`
 >    rules the diff triggers; tests where `standards.md` → Testing requires them.
 > Also read the slice's latest `context/reviews/*-verify.md` → Fragile but passing, if there is one.
+> Run this over the diff (`<base>` is `HEAD` for the working tree), and search each untracked code
+> file for the same pattern:
+> `git diff --no-ext-diff --src-prefix=a/ --dst-prefix=b/ -U0 <base> -- . ':(exclude)*.md' ':(exclude)context' ':(exclude).pantoo.json' ':(exclude)skills-lock.json' ':(exclude).claude' ':(exclude).impeccable' ':(exclude).impeccable-live' ':(exclude,glob)**/.taste-skill/**' | awk '/^\+\+\+ /{f=substr($(0),7);next} /^@@/{split($(3),h,",");n=substr(h[1],2)+0;next} /^\+/{print f":"n": "substr($(0),2);n++}' | grep -E 'relative\(|relpath\(|join\(|process\.exit\(|context/'`
+> Open each hit and report it only when it's one of these (System layer):
+> - **Paths:** a `relative()`, `relpath()` or `join()` result compared with a `/` literal, or
+>   printed, without turning `\` into `/`. Follow the value: the literal may be lines away.
+> - **Exit:** `process.exit()` in a script while a request, stream or other work may be pending.
+> - **Context:** code that reads `context/`, or a comment that cites a path in it.
+> An automation project (`.pantoo.json` → `kind: "automation"`): for each workflow or agent the diff
+> touches, check it against its `context/automations.md` entry (System layer). It reaches only the
+> tools and credentials listed, with no wider access; every approval point is still in the path;
+> nothing on its Never list is now possible; prompts sit in versioned files and model IDs in the one
+> config; an exported workflow holds no credential value. An entry the diff made stale is a finding.
+> `security.md` rule 25 always applies.
 > End with a verdict: approve, approve with nits, changes requested, or blocked.
 
 With `release`, add: "Release pass: check every rule in `security.md`, the extended parts of a
 rule included. For each Project mapping row that is `todo` or `partial`, say what the code does
 now, with `path`, so the mapping can be updated."
 
+Text users read changed → also proofread it, following
+[references/proofread.md](references/proofread.md): a second spawn that sees the strings, not the
+diff.
+
 ## 4. Report
 
 The reviewer can't write files, so you write its findings to
 `context/reviews/<YYYY-MM-DD>-<NN or branch>-review.md`, most severe first, under one header line:
-verdict, reviewer model, `base..head`, spec. The reviewer failed or returned nothing → say so and
+verdict, reviewer model, `base..head`, spec. Proofread findings rank with the rest, tagged Copy.
+The reviewer failed or returned nothing → say so and
 offer to re-run; never write an empty or invented review.
 
 Then stop and fix nothing until the developer picks what to fix. A finding they call intentional is

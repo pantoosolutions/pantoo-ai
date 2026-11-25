@@ -19,12 +19,16 @@ intake resumes on them afterwards.
 
 `${CLAUDE_PLUGIN_ROOT}/templates/manifest.json` → `v1` lists every rename.
 
+**v1 files left in a v2 context** (the state script's `v1 files left`): move only those, by the
+table below. A v1 file whose v2 file already exists merges into it, and is deleted once the merge
+is approved. Then resume as the script's other lines say.
+
 **Never filled** (every v1 file still the template, `CLAUDE.md` too): nothing to carry over. With
 the developer's OK, `git rm` the v1 files, scaffold v2 fresh (step 2), and run the intake.
 
 | v1 | v2 | How |
 | --- | --- | --- |
-| `project-overview.md`, `code-standards.md`, `security-rules.md`, `library-docs.md` | `overview.md`, `standards.md`, `security.md`, `libraries.md` | Rename. Add the v2 template's missing sections (e.g. Testing in `standards.md`) as placeholders |
+| `project-overview.md`, `code-standards.md`, `security-rules.md`, `library-docs.md` | `overview.md`, `standards.md`, `security.md`, `libraries.md` | Rename. Add the v2 template's missing sections (e.g. Testing in `standards.md`) as placeholders; `standards.md` → Automations only for an automation project |
 | No `security-rules.md` (set up before it existed) | `security.md` | Copy the template, then audit it as in [intake-existing.md](intake-existing.md) Phase 5 (`security.md` bullet), read-only. A secret ever committed → tell the developer at once: rotate it first |
 | `ui-tokens.md`, `ui-rules.md`, `ui-registry.md` | `ui/tokens.md`, `ui/rules.md`, `ui/registry.md` | Rename |
 | `build-plan.md` + `progress-tracker.md` | `roadmap.md` | Merge, below |
@@ -57,7 +61,7 @@ relative links (`../DESIGN.md` → `../../DESIGN.md`). Links to Helpers files ou
 | --- | --- |
 | Project name, Commands | `AGENTS.md`: title, Commands |
 | "Context: read before any work" | Dropped: `AGENTS.md` → Where things are covers it |
-| Design: ownership table, rules, taste dials, lint and export commands | `CLAUDE.md` → the v2 Design section, plus only what's specific to this project (dial values that were set, the export command). Unset dials are dropped; `design-flow` asks for them |
+| Design: ownership table, rules, lint and export commands | `CLAUDE.md` → the v2 Design section, plus only what's specific to this project (the export command). Settings for the taste tool are dropped |
 | Workflow per screen | Dropped. The skills carry the workflow: `/architect` → `write-spec`, `/imprint` → `capture-ui`, `/review` → `review-change`, `/recover` → `diagnose-problem`, `/remember` → `save-session`, progress-tracker updates → `sync-context` |
 | Models: project specifics | `CLAUDE.md` → Models for this project |
 | Compact instructions | `CLAUDE.md`, as is |
@@ -71,6 +75,9 @@ same content goes into `CLAUDE.local.md`, and the tracked `CLAUDE.md` is never t
 old skills in `.claude/skills/{architect,imprint,review,recover,remember,find-docs}/` and a
 `# >>> personal claude context` block in `.git/info/exclude`. After approval, delete the skill
 copies and replace the block with the paths SKILL.md step 2 lists for local mode.
+
+A UI project also gets `context/copy.md`: [site-copy.md](site-copy.md). An automation project gets
+`context/automations.md`: [automations.md](automations.md).
 
 Finish: write or update `.pantoo.json` with `"layout": 2`, then resume the intake (SKILL.md
 step 3) at the first file that still has placeholders.

@@ -3,10 +3,10 @@ import path from 'node:path';
 import { hash, readIfExists, readJson, writeJson } from './files.js';
 import { kitRoot } from './paths.js';
 import { unmergeSettings } from './settings.js';
-import { OPTIONS, PLUGIN, applyKit, claude, clearSaved, configureGuard, loadSaved, saveSaved, syncTools, target } from './install.js';
+import { OPTIONS, PLUGIN, applyKit, claude, clearSaved, configureGuard, loadSaved, saveSaved, syncTools, installUnlessHeld, target } from './install.js';
 import { MACHINE_HEADER, MACHINE_RULE } from './machine.js';
 import { PROJECT_FILE, hideCompanions } from './scaffold.js';
-import { COMPANIONS, THIRD_PARTY, TOOLS, defaultRun, installCompanions, installTool, installedRefs, removeTool } from './third-party.js';
+import { COMPANIONS, THIRD_PARTY, TOOLS, defaultRun, heldRow, installCompanions, installedRefs, readHolds, removeTool, skillState, skillsRoot } from './third-party.js';
 
 const lastLine = (out) => out.split('\n').filter(Boolean).pop() ?? '';
 const row = (what, r, ok, note = '') => ({ what, status: r.ok ? ok : 'FAILED', note: r.ok ? note : lastLine(r.out) });
@@ -35,10 +35,15 @@ export function update({ prof, dir, force, run = defaultRun }) {
     results.push(...(tools.length ? tools : [{ what: `design tools${label}`, status: 'up to date' }]));
   }
   const companions = project.companions ?? [];
-  if (companions.length) {
+  const holds = readHolds(prof);
+  if (companions.length && Object.hasOwn(holds, 'ui-ux-pro-max')) {
+    results.push(heldRow('companions', 'ui-ux-pro-max', holds['ui-ux-pro-max']));
+  } else if (companions.length) {
     const refs = installedRefs(dir);
     const pin = TOOLS['ui-ux-pro-max'].sha;
-    const stale = companions.filter((n) => refs[n] !== pin || !fs.existsSync(path.join(dir, '.claude', 'skills', n)));
+    const root = skillsRoot('project', { dir });
+    const stale = companions.filter((n) => refs[n] !== pin || !fs.existsSync(path.join(root, n))
+      || (COMPANIONS.includes(n) && skillState('ui-ux-pro-max', { name: n, root }).state === 'older'));
     results.push(...(stale.length ? installCompanions(stale, { dir, prof, run }) : [{ what: 'companions', status: 'up to date' }]));
   }
   return results;
@@ -120,7 +125,7 @@ export function add({ name, prof, dir, force, companion, run = defaultRun }) {
   const saved = loadSaved(t);
   if (!saved) throw new Error(`No saved choices at ${t.scope} scope; run \`npx pantoo-ai init\` first.`);
   if (name === 'design') {
-    const results = THIRD_PARTY.packs.design.flatMap((id) => installTool(id, { scope: t.scope, dir, prof, run }));
+    const results = THIRD_PARTY.packs.design.flatMap((id) => installUnlessHeld(id, { scope: t.scope, dir, prof, run }));
     const fresh = loadSaved(t);
     fresh.packs = [...new Set([...(fresh.packs ?? []), 'design'])];
     saveSaved(t, fresh);

@@ -27,6 +27,14 @@ When compacting, keep: the current task and its spec or plan path, decisions mad
 changed, failing checks with their exact errors, and open questions. Drop exploration output and
 superseded attempts.
 
+## Exceptions to global rules
+
+Relaxed for this project only. Everything not listed here still applies.
+
+| Global rule | Allowed here | Why |
+| ----------- | ------------ | --- |
+{{EXCEPTIONS}}
+
 <!-- UI projects only: keep the section below, otherwise delete it. -->
 
 ## Design
@@ -34,4 +42,5 @@ superseded attempts.
 Read `context/ui/tokens.md`, `context/ui/rules.md` and `context/ui/registry.md` before any UI
 work, plus `DESIGN.md` and `PRODUCT.md` if they exist. Match the screens already built; don't
 restyle screens the task didn't touch. Record new components with `capture-ui`.
+Write text users read to `context/copy.md` (variant, register, terms).
 Which design tool runs at which step: `design-flow`.

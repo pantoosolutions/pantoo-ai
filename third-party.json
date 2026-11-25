@@ -1,34 +1,90 @@
 {
-  "skillsCli": "skills@1.7.4",
+  "skillsCli": "skills@1.9.0",
   "tools": {
     "impeccable": {
       "label": "impeccable (shape, critique, audit, polish)",
       "repo": "pbakaus/impeccable",
-      "tag": "skill-v4.8.0",
+      "tag": "skill-v4.11.0",
       "via": "npm",
-      "npm": "impeccable@4.8.0",
+      "npm": "impeccable@4.11.0",
+      "bundle": {
+        "url": "https://github.com/pbakaus/impeccable/releases/download/skill-v4.11.0/universal.zip",
+        "sha256": "3f8d64930d0ec4d16161e9d909d9ec790e466e7e60e9ac647b1487a812a96051"
+      },
       "skills": ["impeccable"],
-      "agents": ["impeccable-asset-producer", "impeccable-documenter", "impeccable-finish-reviewer", "impeccable-manual-edit-applier"]
+      "agents": ["impeccable-asset-producer", "impeccable-documenter", "impeccable-finish-reviewer", "impeccable-manual-edit-applier", "impeccable-motion-reviewer"]
     },
     "taste": {
       "label": "taste (design-taste-frontend)",
       "repo": "Leonxlnx/taste-skill",
-      "tag": "v2.1.5",
-      "sha": "12af471f627f866411b4bd785b19646d3672784c",
+      "tag": "v2.5.1",
+      "sha": "f6b76575f949707b4e3c37cd86cb44b0b98643e8",
+      "hashes": {
+        "design-taste-frontend": "e97dde758cb58dc6868d2dea3b5e3a2669e93e8be725f0f66f1cc282c85a55c9"
+      },
+      "previous": [
+        {
+          "tag": "v2.1.5",
+          "sha": "12af471f627f866411b4bd785b19646d3672784c",
+          "hashes": {
+            "design-taste-frontend": "22b71b421e7ed4a4d67043551340aa0ce1452182bd3d7f77960142e2bcd72c4c"
+          }
+        }
+      ],
       "via": "skills",
       "skills": ["design-taste-frontend"]
     },
     "ui-ux-pro-max": {
       "label": "ui-ux-pro-max (styles, palettes, font pairings)",
       "repo": "nextlevelbuilder/ui-ux-pro-max-skill",
-      "tag": "v2.15.0",
-      "sha": "a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5",
+      "tag": "main@8db3633",
+      "sha": "8db36338810d0942567b97ce439affd1619fcf31",
+      "hashes": {
+        "banner-design": "6a6ac397e7488da8534c2b894c8ed0f6372ff01d21b1798b42b0fc3df105648c",
+        "brand": "94f9f05a1de0aa05cdda1fca2792cc4e9f4e29bae06546ca3e0c660c9b7de7a4",
+        "design": "f900b6aa65ed502b0dc69f773196961742633720bf6e0d07ac94537fdd135b06",
+        "design-system": "107c327e3b31e5203d11d53ebbd1d36f0a2f55fa836837281a42bdd17dc2f24e",
+        "slides": "918974229b784fa294cfd6f04b6ac39b92fffe2e4daa61f350ab1b01a270a533",
+        "ui-styling": "c14668e47dee1b18e7b73e7fdd450bd741bbde707a73c2b419e4c5d801d8a7fa",
+        "ui-ux-pro-max": "0e889e5377f41bdcf10cf65bda506c3edd346cabd1c9ba04931f26abbff5c723"
+      },
+      "previous": [
+        {
+          "tag": "v2.15.0",
+          "sha": "a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5",
+          "hashes": {
+            "banner-design": "de1d9f1b00bd35e0b906fc5ebfd5bb2e88e3ed2ca2a97d8a7a4def82d6e2f858",
+            "brand": "589781c64f9951012a6be03851fc0894061df613eaee555586a7ef71ac4c81e1",
+            "design": "15a23f39b1ef2bb16f3777f5412a9aa239d9335d3d740ec9e14a45e61721ba48",
+            "design-system": "b5188ff0b018778804f840d3630bb403f99750a3c375f928bfb07b56e9cc71ed",
+            "slides": "6a3d3d0ab111ca865a3da83a57eb6d737383ae697066cb003ce51410ee80d7b6",
+            "ui-styling": "2408e41a336178b87dd4b75d33d5894bb542d6fad9126e4c08a5e5970a9246de",
+            "ui-ux-pro-max": "8bacaa96522c1f106f70da907d2d11f8dd8e00f77da658d4fc0634aa88429d77"
+          }
+        }
+      ],
       "via": "skills",
       "skills": ["ui-ux-pro-max"],
       "companions": ["design", "design-system", "brand", "banner-design", "slides", "ui-styling"]
+    },
+    "emil": {
+      "label": "Emil Kowalski's motion skills (animate, review-animations)",
+      "repo": "emilkowalski/skills",
+      "tag": "main@64eb3de",
+      "sha": "64eb3deb9a5fbfa041faf783e0bc3fd635872e9c",
+      "hashes": {
+        "animate": "456fcbbf75667e7e31ab5549aa6a1dd5779fac7ff1f35b7628716df07b980387",
+        "animation-performance": "b8eef045ad436cf184247e3aad603002cab05a8761b746d7ee1c97083fb8bf04",
+        "animation-vocabulary": "12d3580f19a6d1880aa5e8954ddfe0e11a6be831bd917a8ffd68736bc96f70cd",
+        "emil-design-eng": "943e5965be39d05809babf51709660411ccdb4f8ab08e425bc57dca662c59182",
+        "improve-animations": "b082fcf607a0882d48b3dcc3e4c08a327e7e0bbb9159006386105d126a2560f2",
+        "review-animations": "5bb05c62dc9984a0461be4cfa5618f3be4bcb41504f05af7a04146585535f021"
+      },
+      "via": "skills",
+      "skills": ["animate", "review-animations", "improve-animations", "animation-performance", "animation-vocabulary", "emil-design-eng"]
     }
   },
   "packs": {
-    "design": ["impeccable", "taste", "ui-ux-pro-max"]
+    "design": ["impeccable", "taste", "ui-ux-pro-max", "emil"]
   }
 }

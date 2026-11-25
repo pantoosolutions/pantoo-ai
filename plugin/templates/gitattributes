@@ -1,0 +1,32 @@
+# Text files are LF on every OS, whatever core.autocrlf says.
+* text=auto eol=lf
+
+# Windows runs these with CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary: never converted or diffed as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.7z binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.mp3 binary
+*.mp4 binary
+*.webm binary
+*.mov binary
+*.wav binary
+*.docx binary
+*.xlsx binary
+*.pptx binary

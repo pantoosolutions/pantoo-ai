@@ -78,7 +78,8 @@ The build agent operates as a senior engineer:
 ## Environment Variables
 
 > 🧭 GUIDANCE: Where they're defined, the secret-vs-public rule, and a table of the variables
-> the project uses (fill as they're introduced).
+> the project uses (fill as they're introduced). Mark a secret's row "secret, in .pantoo.json":
+> its name goes in `.pantoo.json` → `secrets`, so `doctor` reports it present or missing.
 
 - {{ENV_RULE}}
 
@@ -96,6 +97,54 @@ The build agent operates as a senior engineer:
 ```{{lang}}
 {{CONSTANT_DEFINITION}}
 ```
+
+---
+
+## Cross-OS
+
+> 🧭 GUIDANCE: Keep these even when one machine works on the project today. Keep the npm rule
+> only if the project uses npm.
+
+- **Paths:** turn `\` into `/` before comparing or printing a path
+  (`relative(from, to).split(sep).join('/')`). Windows returns `\`, so a result compared with a
+  `/` literal never matches there.
+- **Exit codes:** scripts set `process.exitCode` and let the process end. Call `process.exit()`
+  only when nothing is pending: with sockets still closing, it can crash Node on Windows.
+- **Env vars:** none inline (`VAR=1 command`) in anything a tool runs in its own shell: npm
+  scripts, Playwright's `webServer.command`. `cmd.exe` can't read them. Use `webServer.env`,
+  `cross-env` or an `.mjs` runner.
+- **npm install scripts:** npm 12 blocks a dependency's install script until it's approved (npm 11
+  only lists it), and the install still succeeds. Review `npm approve-scripts
+  --allow-scripts-pending`, approve each package the stack needs with `npm approve-scripts <pkg>`,
+  run `npm rebuild <pkg>`, and commit the `allowScripts` entry in `package.json`.
+
+---
+
+## Code Stands on Its Own
+
+> 🧭 GUIDANCE: Keep as written. The code may ship without `context/`.
+
+- No code, test or build script reads `context/`. A value the code needs lives in the code or its
+  config.
+- Comments don't cite spec paths (`context/specs/…`). They state the reason itself.
+
+---
+
+## Automations
+
+> 🧭 GUIDANCE: Automation projects only (agents, AI assistants, workflow automation); delete this
+> section otherwise. Fill the paths from the architecture phase.
+
+- **Workflow exports are committed** (n8n JSON, Make blueprints, agent configs) at
+  `{{EXPORTS_PATH}}`, re-exported after every change in the tool. An export holds credentials by
+  name only: no token in a node's headers, URL or body, and no pinned run data with real people's
+  data in it.
+- **Prompts live in versioned files** at `{{PROMPTS_PATH}}`, never typed inline in a workflow node
+  or a code string. Model IDs are set in one config file, `{{MODELS_CONFIG}}`.
+- **Model output is checked before it acts:** parsed against a schema, and a failed parse retries
+  or stops, never passes through (`security.md` rule 25).
+- **Test inputs** for `context/automations.md` → Tests live at `{{TEST_INPUTS_PATH}}`, outside
+  `context/`, with no real personal data.
 
 ---
 

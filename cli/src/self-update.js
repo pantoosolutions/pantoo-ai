@@ -15,7 +15,7 @@ export function newer(a, b) {
 }
 
 const npx = (args, env) => {
-  const r = spawn('npx', args, { stdio: 'inherit', env });
+  const r = spawn('npx', args, { stdio: 'inherit', env, cwd: process.cwd() });
   return r.error ? null : r.status ?? 1;
 };
 const VERSION_RE = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;

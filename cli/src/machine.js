@@ -15,10 +15,20 @@ const GIT_BASH_CANDIDATES = (env) => [
   env.LOCALAPPDATA && path.win32.join(env.LOCALAPPDATA, 'Programs', 'Git', 'bin', 'bash.exe'),
 ].filter(Boolean);
 
+// Run from the home folder: Windows looks in the current folder first, and doctor runs inside
+// projects that may have been cloned from anywhere.
 function probe(cmd, args) {
-  const r = spawn(cmd, args, { timeout: 10000 });
-  return r.error || r.status !== 0 ? null : `${r.stdout}${r.stderr}`.trim();
+  try {
+    const r = spawn(cmd, args, { timeout: 10000, cwd: os.homedir() });
+    return r.error || r.status !== 0 ? null : `${r.stdout}${r.stderr}`.trim();
+  } catch {
+    return null; // an argument cmd.exe can't be given
+  }
 }
+
+const orNull = (read) => {
+  try { return read(); } catch { return null; }
+};
 
 // Everything the detection touches, injectable so tests can describe a Windows or a Mac machine.
 export function realSystem() {
@@ -30,8 +40,14 @@ export function realSystem() {
     nodeVersion: process.versions.node,
     nodePath: process.execPath,
     exists: (f) => fs.existsSync(f),
+    read: (f) => orNull(() => fs.readFileSync(f, 'utf8')),
+    size: (f) => orNull(() => fs.statSync(f).size),
+    realpath: (f) => orNull(() => fs.realpathSync(f)) ?? f,
+    list: (d) => orNull(() => fs.readdirSync(d)) ?? [],
     // The first line of `cmd args`, or null when it is missing or fails.
     run: (cmd, args) => probe(cmd, args)?.split('\n')[0] ?? null,
+    // All of its output, or null when it is missing or fails.
+    output: probe,
     // First match of `where` / `which`.
     which: (cmd) => probe(win ? 'where' : 'which', [cmd])?.split(/\r?\n/)[0] ?? null,
     osVersion: () => (process.platform === 'darwin' ? probe('sw_vers', ['-productVersion']) : null) ?? os.release(),
@@ -76,6 +92,15 @@ function gitBash(sys) {
   return derived && sys.exists(derived) ? derived : null;
 }
 
+// The terminal profile VS Code opens on Windows, when the user chose one. settings.json allows
+// comments, so the one line is matched instead of parsing the file. The name goes into a rule that
+// Claude reads, so only a plain profile name is taken.
+function vscodeTerminal(sys) {
+  if (!sys.env.APPDATA) return null;
+  const text = sys.read?.(path.win32.join(sys.env.APPDATA, 'Code', 'User', 'settings.json')) ?? '';
+  return text.match(/^[ \t]*"terminal\.integrated\.defaultProfile\.windows"\s*:\s*"([\w ().-]{1,60})"/m)?.[1] ?? null;
+}
+
 export function detectMachine(sys = realSystem()) {
   const win = sys.platform === 'win32';
   const info = {
@@ -85,10 +110,29 @@ export function detectMachine(sys = realSystem()) {
     node: { version: sys.nodeVersion, ...nodeManager(sys) },
     python: python(sys),
     gitBash: win ? gitBash(sys) : null,
+    vscodeTerminal: win ? vscodeTerminal(sys) : null,
     brewPrefix: null,
   };
   if (sys.platform === 'darwin') info.brewPrefix = sys.exists('/opt/homebrew/bin/brew') ? '/opt/homebrew' : sys.exists('/usr/local/bin/brew') ? '/usr/local' : null;
   return info;
+}
+
+// Chrome, Edge or Chromium where taste's checker looks for them (its `findChrome`), else null.
+export function findBrowser(sys = realSystem()) {
+  const { env } = sys;
+  if (env.CHROME_PATH && sys.exists(env.CHROME_PATH)) return env.CHROME_PATH;
+  const home = env.HOME || env.USERPROFILE || '';
+  const programs = [env.PROGRAMFILES || 'C:\\Program Files', env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)'];
+  const mac = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  const list = {
+    win32: [
+      ...[...programs, env.LOCALAPPDATA].filter(Boolean).map((d) => path.win32.join(d, 'Google/Chrome/Application/chrome.exe')),
+      ...programs.map((d) => path.win32.join(d, 'Microsoft/Edge/Application/msedge.exe')),
+    ],
+    darwin: [mac, '/Applications/Chromium.app/Contents/MacOS/Chromium', path.posix.join(home, mac)],
+    linux: ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/snap/bin/chromium'],
+  }[sys.platform] ?? [];
+  return list.find((f) => sys.exists(f)) ?? null;
 }
 
 // Facts first, then only the consequences that change how commands should be written.
@@ -115,6 +159,7 @@ export function renderMachine(info) {
   lines.push(`- Node ${nm.version}${nm.name ? `, managed by ${nm.name}` : `, from \`${nm.path}\``}`);
   lines.push(info.python ? `- Python ${info.python.version}: the command is \`${info.python.command}\` (${info.python.path})` : '- Python: not found');
   if (win) lines.push(`- Git Bash: ${info.gitBash ? `\`${info.gitBash}\`` : 'not found; Claude Code needs it on Windows (install Git for Windows)'}`);
+  if (info.vscodeTerminal) lines.push(`- VS Code's default terminal: ${info.vscodeTerminal}`);
 
   lines.push('', '## What this changes', '');
   if (nm.name) {
@@ -125,9 +170,11 @@ export function renderMachine(info) {
   } else {
     lines.push('- Node comes from a plain install. Do not add a Node manager without asking.');
   }
-  if (info.python) lines.push(`- Run Python as \`${info.python.command}\`${win ? '; `python3` may not exist here' : ''}.`);
+  if (info.python) lines.push(`- Run Python as \`${info.python.command}\`${win ? '; `python3` may not exist here' : ''}. A skill that calls \`python\` gets this command.`);
   if (win) {
     lines.push('- The Bash tool runs Git Bash: use POSIX syntax and forward-slash paths there. Use PowerShell syntax only when a command is run through PowerShell.');
+    lines.push('- Git Bash rewrites an argument that starts with `/` into a Windows path. Prefix the command with `MSYS_NO_PATHCONV=1` (for example `MSYS_NO_PATHCONV=1 npx ctx7@latest docs /org/project "…"`).');
+    if (nm.name === 'fnm') lines.push('- `fnm env --use-on-cd` in `~/.bashrc` breaks `cd` in this shell unless it is skipped when `CLAUDECODE` is set. `npx pantoo-ai doctor` prints the guarded line.');
     lines.push('- npm CLIs are `.cmd` shims; call them by name (`npx`, `claude`), not by file path.');
     lines.push('- Windows PowerShell 5.1 writes UTF-8 with a BOM (`Set-Content -Encoding UTF8`, `Out-File`), which breaks JSON and some config files. Write them with `[IO.File]::WriteAllText($path, $text)` (no BOM), from Git Bash, or with the Write tool.');
   }

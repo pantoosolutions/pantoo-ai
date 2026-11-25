@@ -1,14 +1,17 @@
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import * as p from '@clack/prompts';
-import { doctor } from './doctor.js';
+import { FIXES, acceptSettings, doctor, repairLineEndings } from './doctor.js';
+import { exportMove, importMove } from './move.js';
 import { GUARDS, OPTIONS, install } from './install.js';
 import { add, addNames, remove, update } from './manage.js';
 import { profile } from './paths.js';
+import { plain } from './secrets.js';
 import { VERSION, selfUpdate } from './self-update.js';
 import { SOURCES, addSource } from './sources.js';
 import { KINDS, PROJECT_FILE, detect, hideCompanions, scaffold } from './scaffold.js';
-import { COMPANIONS, THIRD_PARTY, defaultRun, designMissing, installCompanions } from './third-party.js';
+import { COMPANIONS, THIRD_PARTY, defaultRun, designMissing, installCompanions, setHolds } from './third-party.js';
+import { checkUpstream } from './upstream.js';
 
 const HELP = `pantoo-ai <command>   (--version prints the version)
 
@@ -18,6 +21,7 @@ const HELP = `pantoo-ai <command>   (--version prints the version)
   update    replay the saved choices and move third-party pins
   remove    undo init for a scope, from the saved record
   doctor    check what is installed against what is expected (and this project, if set up)
+  move      carry a project's private state to a new clone: move export, then move import <folder>
 
 init flags
   --yes                   accept the defaults, no prompts
@@ -54,6 +58,9 @@ add source <tool>         record a design source; tools with an official MCP ser
 update flags
   --dir <dir>             the project folder, default the current one (project choices replayed too)
   --no-self-update        don't re-run through a newer pantoo-ai from npm
+  --check                 only compare each design tool's pin with upstream; installs and writes nothing
+  --hold <tool>           keep the installed version on this machine: ${Object.keys(THIRD_PARTY.tools).join(', ')}
+  --release <tool>        end a hold, so update moves the tool to the kit's pin
   --force, --home <dir>   as in init
 
 remove flags
@@ -65,20 +72,40 @@ remove flags
 
 doctor flags
   --dir <dir>             the project folder, default the current one
+  --accept <key>          a settings.json value of yours that differs from the kit's on purpose:
+                          shown as ok until the kit's value for that key changes
+  --fix line-endings      first rewrite the files that are CRLF on disk but LF in git (clean tree only)
   --home <dir>            check another profile
+
+move export flags         writes ignored kit files, project memory and permission rules; never a secret
+  --to <folder>           where to write, default ~/pantoo-move/<name>-<time>/ (outside the repo, empty)
+  --dir <dir>             the project, default the current folder
+  --home <dir>            as in init
+
+move import <folder>      run in the new clone: checks remote, branch and HEAD, then puts things back
+  --dir <dir>             the clone, default the current folder
+  --allow <n,…|all>       add these permission rules from the printed list (never added without this or a yes)
+  --take <path|all>       replace a file that differs from yours (a backup is kept); repeatable
+  --yes                   ask nothing; never grants a permission
+  --home <dir>            as in init
 `;
 
 const ICON = { ok: '✓', warn: '!', fail: '✗' };
 
+// Every row may hold a name from the repo (a file, an MCP server, a README cell): `safe` strips the
+// control characters that would let it rewrite the terminal.
+const safe = (text) => plain(text, 2000);
+
 function printChecks(checks) {
-  for (const c of checks) console.log(`${ICON[c.level]} ${c.what}${c.note ? `  (${c.note})` : ''}`);
+  for (const c of checks) console.log(`${ICON[c.level]} ${safe(c.what)}${c.note ? `  (${safe(c.note)})` : ''}`);
   const fails = checks.filter((c) => c.level === 'fail').length;
   const warns = checks.filter((c) => c.level === 'warn').length;
   console.log(fails ? `\n${fails} problem(s), ${warns} warning(s).` : `\nAll good${warns ? `, ${warns} warning(s)` : ''}.`);
   return fails ? 1 : 0;
 }
 
-const show = (results) => { for (const r of results) console.log(`${r.status === 'FAILED' ? '✗' : '✓'} ${r.what}: ${r.status}${r.note ? `  (${r.note})` : ''}`); };
+const show = (results) => { for (const r of results) console.log(`${r.status === 'FAILED' ? '✗' : '✓'} ${safe(r.what)}: ${safe(r.status)}${r.note ? `  (${safe(r.note)})` : ''}`); };
+const printUpstream = (rows) => { for (const r of rows) console.log(`${ICON[r.level]} ${safe(r.what)}  (${safe(r.note)})`); };
 const interactive = (values) => !values.yes && process.stdin.isTTY;
 
 async function runInit(values, run) {
@@ -163,6 +190,36 @@ async function runNew(values, run) {
   console.log('\nNext: open Claude Code in this folder and run /pantoo:start-project.');
 }
 
+// Prompts for move import; null without a TTY, so nothing is granted or replaced unasked.
+const clackAsk = {
+  async confirm(message) {
+    const ok = await p.confirm({ message, initialValue: false });
+    return !p.isCancel(ok) && ok;
+  },
+  async multiselect(message, options) {
+    const picked = await p.multiselect({ message, options, initialValues: [], required: false });
+    return p.isCancel(picked) ? [] : picked;
+  },
+};
+
+async function runMove(values, positionals) {
+  const prof = profile(values.home);
+  const dir = path.resolve(values.dir ?? '.');
+  const [sub, folder] = positionals;
+  if (sub === 'export') {
+    const r = exportMove({ prof, dir, to: values.to });
+    for (const l of r.lines) console.log(l);
+    return;
+  }
+  if (sub !== 'import') throw new Error('move needs export or import: `pantoo-ai move export`, `pantoo-ai move import <folder>`.');
+  if (!folder) throw new Error('move import needs the folder `move export` wrote.');
+  const r = await importMove({ prof, dir, folder, allow: values.allow, take: values.take ?? [], ask: interactive(values) ? clackAsk : null });
+  for (const l of r.lines) console.log(l);
+  console.log('\nDoctor:');
+  // Exit 0 even with doctor's findings or pending answers: the import itself went through.
+  printChecks(doctor(prof, r.root));
+}
+
 async function runRemove(values, run) {
   const scope = values.scope ?? 'user';
   if (!['user', 'project'].includes(scope)) throw new Error('--scope must be user or project.');
@@ -173,7 +230,7 @@ async function runRemove(values, run) {
   show(remove({ prof: profile(values.home), scope, dir: path.resolve(values.dir ?? '.'), thirdParty: values['third-party'], run }));
 }
 
-export async function main(argv, { run = defaultRun } = {}) {
+export async function main(argv, { run = defaultRun, fetch: get = globalThis.fetch } = {}) {
   if (['--version', '-v'].includes(argv[0])) return console.log(VERSION);
   const [command, ...rest] = argv;
   const { values, positionals } = parseArgs({
@@ -200,6 +257,14 @@ export async function main(argv, { run = defaultRun } = {}) {
       'third-party': { type: 'boolean' },
       companion: { type: 'boolean' },
       source: { type: 'string' },
+      check: { type: 'boolean' },
+      hold: { type: 'string', multiple: true },
+      release: { type: 'string', multiple: true },
+      accept: { type: 'string', multiple: true },
+      to: { type: 'string' },
+      allow: { type: 'string' },
+      take: { type: 'string', multiple: true },
+      fix: { type: 'string' },
       ...Object.fromEntries(Object.keys(OPTIONS).map((id) => [`no-${id}`, { type: 'boolean' }])),
     },
   });
@@ -207,14 +272,31 @@ export async function main(argv, { run = defaultRun } = {}) {
   if (command === 'init') return runInit(values, run);
   if (command === 'new') return runNew(values, run);
   if (command === 'remove') return runRemove(values, run);
+  if (command === 'move') return runMove(values, positionals);
   if (command === 'update') {
+    const hold = values.hold ?? [];
+    const release = values.release ?? [];
+    if (values.check) {
+      if (hold.length || release.length) throw new Error('--check changes nothing; run it without --hold or --release.');
+      return printUpstream(await checkUpstream({ prof: profile(values.home), run, fetch: get }));
+    }
     const code = await selfUpdate({ args: rest });
     if (code !== null) return void (process.exitCode = code);
+    // Saved before updating, so this same run leaves a newly held tool alone.
+    show(setHolds({ hold, release }, { dir, prof: profile(values.home) }));
     show(update({ prof: profile(values.home), dir, force: values.force, run }));
   } else if (command === 'add') {
     if (!positionals[0]) throw new Error(`add needs a name. Valid: ${addNames().join(', ')}, source <tool>.`);
     if (positionals[0] === 'source') return show(addSource({ name: positionals[1], dir }));
     show(add({ name: positionals[0], prof: profile(values.home), dir, force: values.force, companion: values.companion, run }));
-  } else if (command === 'doctor') process.exitCode = printChecks(doctor(profile(values.home), dir));
+  } else if (command === 'doctor') {
+    if (values.fix !== undefined && !FIXES.includes(values.fix)) throw new Error(`--fix takes one of: ${FIXES.join(', ')}.`);
+    if (values.fix === 'line-endings') {
+      const r = repairLineEndings(dir, { cwd: profile(values.home).home });
+      show([{ what: 'line endings', status: r.status === 'failed' ? 'FAILED' : r.status, note: r.note }]);
+    }
+    show(acceptSettings(profile(values.home), values.accept ?? []));
+    process.exitCode = printChecks(doctor(profile(values.home), dir));
+  }
   else console.log(HELP);
 }

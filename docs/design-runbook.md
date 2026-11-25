@@ -8,23 +8,27 @@ this page is for reading once.
 | Tool | Job | Installed by |
 | --- | --- | --- |
 | impeccable | Judges UI: product brief (`init`), `shape`, `critique`, `audit`, `polish` and targeted fixes | `npx pantoo-ai init` (design pack) |
-| taste (`design-taste-frontend`) | Shapes what Claude generates: layout, type, motion, three dials | `npx pantoo-ai init` (design pack) |
+| taste (`design-taste-frontend`) | Builds website pages (not app screens): layout, sections, motion, checked in a real browser | `npx pantoo-ai init` (design pack) |
 | ui-ux-pro-max | Reference: styles, palettes, font pairings, UX guidelines; generates a starting design system | `npx pantoo-ai init` (design pack) |
+| Emil Kowalski's skills (`animate`, `review-animations`, `improve-animations`, `animation-performance`, `animation-vocabulary`, `emil-design-eng`) | Motion: builds it, reviews it, audits a whole app, fixes jank, names an effect | `npx pantoo-ai init` (design pack) |
 | ui-ux-pro-max companions | Narrow helpers that fit one kind of project | `npx pantoo-ai new`, from the project type |
 | Google DESIGN.md CLI | Lints `DESIGN.md` (structure, WCAG contrast) and exports tokens | nothing: runs through `npx` |
 
-Versions are pinned in `third-party.json`; `npx pantoo-ai update` moves them. Don't run the tools' own
-updaters, or the pins drift.
+Versions are pinned in `third-party.json`; `npx pantoo-ai update` moves them. For impeccable the pin
+is the skill zip and its sha256, so a new version changes `npm`, `tag` and `bundle` together. Don't
+run the tools' own updaters, or the pins drift.
 
 ### Companions per project type
 
 | Project type | Companions |
 | --- | --- |
-| Web app, dashboard, SaaS | `design-system`; `ui-styling` with shadcn/Tailwind |
+| Web app, dashboard, SaaS | `design-system` (a shadcn project gets the official `shadcn` skill from the intake catalog) |
 | Marketing site, landing | `brand`, `banner-design` |
 | Brand or identity work | `brand`, `design` (needs a Gemini API key) |
 | Pitch or presentation | `slides` |
+| Mobile app: iOS, Android, cross-platform | `design-system` |
 | API, CLI, backend only | none |
+| AI assistant, agents, workflow automation | none |
 
 They live in the project's `.claude/skills/` and are committed, so teammates get the same set. They
 trigger on words like "design", "brand" or "slides", which is why they aren't global. Add one later
@@ -36,9 +40,9 @@ with `npx pantoo-ai add <companion>`.
 | --- | --- | --- |
 | 1 | Product intake (`/pantoo:start-project`, product phase) | `context/overview.md` |
 | 2 | Product brief (`/impeccable init`) | `PRODUCT.md` |
-| 3 | Choose the look, lint it, preview it (`/pantoo:design-flow look`) | `DESIGN.md`, taste dials |
+| 3 | Choose the look, lint it, preview it (`/pantoo:design-flow look`) | `DESIGN.md` |
 | 4 | Finish the intake: tokens mapped, stack chosen, export set | `context/ui/`, the rest of `context/` |
-| 5 | Per screen: spec or shape → build → capture → critique, audit, polish | screens, registry entries |
+| 5 | Per screen: spec or shape → build → capture → critique, audit, motion, polish | screens, registry entries |
 
 The product comes before the look because impeccable judges against `PRODUCT.md`. The look comes
 before the token wiring so the intake maps real values instead of guessing them.
@@ -68,8 +72,17 @@ token export, a brand kit, a Claude Design handoff, a live site) is a **source**
 
 ## Rules of thumb
 
-- **One generator, one reviewer.** taste builds, impeccable reviews. Asking both to build one screen
-  pulls in two directions.
+- **One generator, one reviewer.** taste builds website pages, impeccable reviews every screen.
+  Asking both to build one screen pulls in two directions.
+- **Emil's skills own motion.** `animate` builds it (not `/impeccable animate`), and
+  `review-animations` reviews it on every screen that moves, taste's pages included. Type
+  `/review-animations` yourself: it doesn't run on its own. `improve-animations` writes plans under
+  `plans/`; build them as slices, not with its `execute`.
+- **App screens skip taste.** Dashboards, settings and other screens people work in are built from
+  `DESIGN.md` and `context/ui/`. So are a mobile app's native screens, which impeccable reviews.
+- **taste checks its own pages.** While in use it adds a Stop hook that tests the page in a headless
+  browser and can send Claude back to fix it. It needs Node 22+ and Chrome, Edge or Chromium, and
+  keeps its state in `.taste-skill/` (never committed). `DESIGN.md` still owns the values.
 - **`DESIGN.md` owns values.** `context/ui/tokens.md` maps them into code; the registry records what
   was built. A value that isn't in `DESIGN.md` gets added there first, then linted.
 - **Previews come from code.** The throwaway `design-preview.html` while choosing the look, then real
@@ -85,7 +98,9 @@ token export, a brand kit, a Claude Design handoff, a live site) is a **source**
 | A skill doesn't show up | Restart Claude Code; skills load at session start. Then `npx pantoo-ai doctor` |
 | Two copies of a skill | Installed globally by hand and by the kit. Keep the kit's; remove the other |
 | A companion fires when you wanted impeccable or taste | Name the skill you want in the prompt |
+| `animate` mentions `animate-expo` or `find-animation-opportunities` | Those aren't in the design pack; ignore the pointer |
 | `designmd lint` prints nothing | You used `npx @google/design.md`; use `npx -y -p @google/design.md designmd lint DESIGN.md` |
+| Claude doesn't stop after building a website page | taste's Stop hook found failures. Let it fix them, or say to ship the page as it is |
 | ui-ux-pro-max scripts fail on Windows | It calls `python3`; see the machine rule `doctor` writes |
 | An MCP design source doesn't respond | Restart Claude Code, then `/mcp` to sign in (Sketch: start its server in Sketch first). `npx pantoo-ai doctor` says whether `.mcp.json` has it |
 | Claude ignores `DESIGN.md` | It must be at the project root, named exactly `DESIGN.md`, and `CLAUDE.md` → Design must point to it |

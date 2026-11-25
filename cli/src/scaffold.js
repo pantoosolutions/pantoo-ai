@@ -1,13 +1,25 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
-import { readIfExists, readJson, writeFile, writeJson } from './files.js';
+import { appendLines, excludeLocal, readIfExists, readJson, writeFile, writeJson } from './files.js';
 import { kitRoot } from './paths.js';
 import { mergeSettings } from './settings.js';
+import { git as runGit } from './spawn.js';
 
 export const templatesDir = path.join(kitRoot, 'plugin', 'templates');
 export const MANIFEST = readJson(path.join(templatesDir, 'manifest.json'), null);
 export const PROJECT_FILE = '.pantoo.json';
+// Security rule 2: env files stay out of git from the first commit, except the example.
+export const ENV_IGNORE = ['.env*', '!.env.example'];
+// One block: the negation only works after `.env*`, so a file that already has `!.env.example`
+// above a missing `.env*` gets both lines again, in order. False when nothing was added.
+export function ignoreEnv(file, header) {
+  const text = readIfExists(file) ?? '';
+  const lines = text.split(/\r?\n/).map((l) => l.trim());
+  const star = lines.lastIndexOf('.env*');
+  if (star !== -1 && lines.lastIndexOf('!.env.example') > star) return false;
+  writeFile(file, `${text}${text && !text.endsWith('\n') ? '\n' : ''}${text ? '\n' : ''}${header}\n${ENV_IGNORE.join('\n')}\n`);
+  return true;
+}
 
 // Project kinds and the ui-ux-pro-max companions each one gets (PLAN.md 4b).
 export const KINDS = {
@@ -15,7 +27,9 @@ export const KINDS = {
   marketing: { label: 'Marketing site, landing', ui: true, companions: ['brand', 'banner-design'] },
   brand: { label: 'Brand or identity work', ui: true, companions: ['brand', 'design'] },
   pitch: { label: 'Pitch or presentation', ui: true, companions: ['slides'] },
+  mobile: { label: 'Mobile app: iOS, Android, cross-platform', ui: true, companions: ['design-system'] },
   backend: { label: 'API, CLI, backend only', ui: false, companions: [] },
+  automation: { label: 'AI assistant, agents, workflow automation', ui: false, companions: [] },
 };
 
 const CODE_MARKERS = [
@@ -31,8 +45,8 @@ const OTHER_CONTEXT = [
 const exists = (dir, rel) => fs.existsSync(path.join(dir, rel));
 
 function git(dir, args) {
-  const r = spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
-  return r.status === 0 ? r.stdout.trim() : null;
+  const r = runGit(dir, args);
+  return r.ok ? r.out.trim() : null;
 }
 
 export const isTracked = (dir, rel) => Boolean(git(dir, ['ls-files', '--', rel]));
@@ -49,7 +63,6 @@ export function detect(dir) {
     hasCode: CODE_MARKERS.some((m) => exists(dir, m)),
     other: OTHER_CONTEXT.filter((rel) => exists(dir, rel)),
     tracked: ['CLAUDE.md', 'AGENTS.md'].filter((rel) => isTracked(dir, rel)),
-    shadcn: exists(dir, 'components.json'),
     isRepo: git(dir, ['rev-parse', '--git-dir']) !== null,
   };
 }
@@ -61,6 +74,7 @@ function applies(rule, choices) {
   if (rule === 'existing') return choices.existing;
   if (rule === 'multi-surface') return choices.multiSurface;
   if (rule === 'ui') return choices.ui;
+  if (rule === 'automation') return choices.kind === 'automation';
   return false;
 }
 
@@ -81,27 +95,39 @@ function render(rel, choices) {
       '| `context/known-issues.md` | Debt and deviations; read before copying a pattern |\n| `context/specs/`',
     );
   }
+  if ((rel === 'AGENTS.md' || rel === 'CLAUDE.local.md') && choices.kind === 'automation') {
+    text = text.replace(
+      '| `context/specs/`',
+      '| `context/automations.md` | Each workflow and agent: steps, tools, approvals, tests |\n| `context/specs/`',
+    );
+  }
   return text;
 }
 
-function appendLines(file, header, lines) {
-  const current = readIfExists(file) ?? '';
-  const missing = lines.filter((l) => !current.split('\n').includes(l));
-  if (!missing.length) return false;
-  const sep = current && !current.endsWith('\n') ? '\n' : '';
-  writeFile(file, `${current}${sep}${current ? '\n' : ''}${header}\n${missing.join('\n')}\n`);
-  return true;
-}
+export { excludeLocal };
 
-// --local: adds paths to .git/info/exclude. False when nothing was added or `dir` isn't a repo.
-export function excludeLocal(dir, lines) {
+// --local: every kit path (MANIFEST.kitPaths) that git doesn't track goes in .git/info/exclude.
+// Used by `new --local` and `move import`. Returns true when lines were added.
+export function excludeKitPaths(dir) {
   const rel = git(dir, ['rev-parse', '--git-path', 'info/exclude']);
-  if (!rel) return false;
+  if (!rel) throw new Error('--local needs a git repo (it hides the files in .git/info/exclude).');
+  // An `any-depth` path gets no leading slash, so git matches it in any folder.
+  const paths = Object.entries(MANIFEST.kitPaths).map(([p, depth]) => (depth === 'root' ? `/${p}` : p));
+  const lines = paths.filter((p) => !isTracked(dir, p.replace(/^\/|\/$/g, '')));
   return appendLines(path.resolve(dir, rel), '# pantoo-ai: local only, never commit', lines);
 }
 
 // --local: keeps the companion folders and the lock file out of git too.
 export const hideCompanions = (dir, names) => excludeLocal(dir, [...names.map((n) => `/.claude/skills/${n}/`), '/skills-lock.json']);
+
+// LF on every OS, whatever a machine's core.autocrlf says. A project's own file is never touched.
+// Not for --local: the file only works for a team once it's committed.
+function writeAttributes(dir, existing) {
+  const what = '.gitattributes';
+  if (exists(dir, what)) return { what, status: 'kept', note: 'already there' };
+  writeFile(path.join(dir, what), fs.readFileSync(path.join(templatesDir, 'gitattributes'), 'utf8'));
+  return { what, status: 'added', note: existing ? 'if git already holds CRLF files, run `git add --renormalize .`' : '' };
+}
 
 // Writes context v2 into `dir`. Returns [{ what, status, note }].
 export function scaffold(dir, choices) {
@@ -123,15 +149,17 @@ export function scaffold(dir, choices) {
   if (skipContext) results.push({ what: 'context/', status: 'kept', note: `v1 layout; run /pantoo:start-project to migrate` });
 
   if (choices.local) {
-    const exclude = found.isRepo ? path.resolve(dir, git(dir, ['rev-parse', '--git-path', 'info/exclude'])) : null;
-    if (!exclude) throw new Error('--local needs a git repo (it hides the files in .git/info/exclude).');
-    const paths = ['/context/', '/CLAUDE.local.md', `/${PROJECT_FILE}`, '/DESIGN.md', '/PRODUCT.md', '/.impeccable/', '/.impeccable-live/'];
-    const lines = paths.filter((p) => !isTracked(dir, p.replace(/^\/|\/$/g, '')));
-    const added = appendLines(exclude, '# pantoo-ai: local only, never commit', lines);
-    results.push({ what: '.git/info/exclude', status: added ? 'updated' : 'unchanged' });
+    if (!found.isRepo) throw new Error('--local needs a git repo (it hides the files in .git/info/exclude).');
+    const added = excludeKitPaths(dir);
+    const secrets = ignoreEnv(path.resolve(dir, git(dir, ['rev-parse', '--git-path', 'info/exclude'])), '# pantoo-ai: env files (security rule 2)');
+    results.push({ what: '.git/info/exclude', status: added || secrets ? 'updated' : 'unchanged' });
   } else {
-    const added = appendLines(path.join(dir, '.gitignore'), '# pantoo-ai: per-person session state', ['context/session.md']);
-    results.push({ what: '.gitignore', status: added ? 'updated' : 'unchanged' });
+    // No leading slash on `.taste-skill/`: taste may build in a folder below the root.
+    const ignored = ['context/session.md', ...(choices.ui ? ['.taste-skill/'] : [])];
+    const added = appendLines(path.join(dir, '.gitignore'), '# pantoo-ai: per-person state', ignored);
+    const secrets = ignoreEnv(path.join(dir, '.gitignore'), '# pantoo-ai: env files (security rule 2)');
+    results.push({ what: '.gitignore', status: added || secrets ? 'updated' : 'unchanged' });
+    results.push(writeAttributes(dir, choices.existing));
   }
 
   if (choices.share && !choices.local) {
@@ -143,8 +171,8 @@ export function scaffold(dir, choices) {
     results.push({ what: '.claude/settings.json', status: merged.added.length ? `merged: ${merged.added.join(', ')}` : 'unchanged' });
   }
 
+  // shadcn projects get the official `shadcn` skill from the intake catalog, not `ui-styling`.
   const companions = [...KINDS[choices.kind].companions];
-  if (choices.kind === 'web-app' && found.shadcn) companions.push('ui-styling');
   const init = detect(dir).init;
   writeJson(path.join(dir, PROJECT_FILE), {
     layout: skipContext ? 1 : MANIFEST.layout,

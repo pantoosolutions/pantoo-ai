@@ -14,10 +14,26 @@
     "context/reviews/.gitkeep": "always",
     "context/known-issues.md": "existing",
     "context/contracts.md": "multi-surface",
+    "context/copy.md": "ui",
+    "context/automations.md": "automation",
     "context/designs/README.md": "ui",
     "context/ui/tokens.md": "ui",
     "context/ui/rules.md": "ui",
     "context/ui/registry.md": "ui"
+  },
+  "kitPaths": {
+    "context/": "root",
+    "AGENTS.md": "root",
+    "CLAUDE.md": "root",
+    "CLAUDE.local.md": "root",
+    "DESIGN.md": "root",
+    "PRODUCT.md": "root",
+    ".pantoo.json": "root",
+    "skills-lock.json": "root",
+    ".claude/": "root",
+    ".impeccable/": "root",
+    ".impeccable-live/": "root",
+    ".taste-skill/": "any-depth"
   },
   "v1": {
     "context/project-overview.md": "context/overview.md",

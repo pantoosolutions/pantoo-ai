@@ -3,16 +3,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { machineChecks } from '../src/doctor.js';
+import { doctor, machineChecks, pythonUsers, tasteChecks } from '../src/doctor.js';
 import { applyKit, install, target } from '../src/install.js';
-import { MACHINE_RULE, detectMachine, renderMachine, writeMachineRule } from '../src/machine.js';
+import { MACHINE_RULE, detectMachine, findBrowser, renderMachine, writeMachineRule } from '../src/machine.js';
 import { profile } from '../src/paths.js';
+import { claudeBinaryChecks, ghChecks, playwrightChecks, setupChecks, shellRcChecks, windowsChecks } from '../src/setup-checks.js';
 import { winQuote } from '../src/spawn.js';
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'pantoo-mc-'));
 const system = (over = {}) => ({
   platform: 'darwin', arch: 'x64', env: {}, nodeVersion: '22.1.0', nodePath: '/usr/local/bin/node',
-  exists: () => false, run: () => null, which: () => null, osVersion: () => '26.6', ...over,
+  exists: () => false, run: () => null, output: () => null, which: () => null, read: () => null, size: () => null,
+  realpath: (f) => f, list: () => [], osVersion: () => '26.6', ...over,
 });
 
 const mac = () => system({
@@ -149,4 +151,154 @@ test('a local marketplace is passed to claude as an absolute path', () => {
   } finally { process.chdir(cwd); }
   assert.ok(path.isAbsolute(run.calls[0][3]));
   assert.equal(fs.realpathSync(run.calls[0][3]), fs.realpathSync(dir));
+});
+
+test('taste needs Node 22 and a browser, but only a copy with a page checker', () => {
+  const root = tmp();
+  const scripts = path.join(root, 'design-taste-frontend', 'scripts');
+  fs.mkdirSync(scripts, { recursive: true });
+  assert.deepEqual(tasteChecks([root], mac()), []);
+  fs.writeFileSync(path.join(scripts, 'gate.mjs'), '');
+  const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  const ok = tasteChecks([tmp(), root], system({ exists: (f) => f === chrome }));
+  assert.deepEqual(ok.map((c) => [c.level, c.note]), [['ok', ''], ['ok', chrome]]);
+  const bad = tasteChecks([root], system({ nodeVersion: '20.19.0' }));
+  assert.deepEqual(bad.map((c) => c.level), ['warn', 'warn']);
+  assert.match(bad[0].note, /this is 20\.19\.0.*22 or newer/);
+  assert.match(bad[1].note, /CHROME_PATH/);
+  // doctor looks in the project's skills too.
+  const dir = tmp();
+  fs.mkdirSync(path.join(dir, '.claude'));
+  fs.renameSync(root, path.join(dir, '.claude', 'skills'));
+  const rows = doctor(profile(tmp()), dir, { user: false, system: system() });
+  assert.ok(rows.some((c) => c.what === 'browser for taste'));
+});
+
+test('findBrowser: Edge on Windows, a per-user Chrome, CHROME_PATH first, nothing elsewhere', () => {
+  const found = (files, over) => findBrowser(win({ exists: (f) => files.includes(f), ...over }));
+  const edge = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+  assert.equal(found([edge]), edge);
+  const local = 'C:\\Users\\j\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe';
+  assert.equal(found([edge, local]), local);
+  assert.equal(found([edge, 'D:\\b.exe'], { env: { CHROME_PATH: 'D:\\b.exe' } }), 'D:\\b.exe');
+  assert.equal(found([]), null);
+  assert.equal(findBrowser(system({ platform: 'linux', exists: (f) => f === '/usr/bin/chromium' })), '/usr/bin/chromium');
+  assert.equal(findBrowser(system({ platform: 'freebsd', exists: () => true })), null);
+});
+
+// A machine made of the files and command results given.
+const fake = (base, { files = {}, dirs = {}, commands = {}, ...over } = {}) => {
+  const result = (cmd, args) => commands[[cmd, ...args].join(' ')] ?? null;
+  return base({
+    exists: (f) => f in files, read: (f) => files[f] ?? null, size: (f) => files[f]?.length ?? null,
+    list: (d) => dirs[d] ?? [], run: (c, a) => result(c, a)?.split('\n')[0] ?? null, output: result, ...over,
+  });
+};
+const levels = (rows) => rows.map((c) => [c.level, c.what]);
+
+test('python fails only when an installed skill runs on it', () => {
+  const root = tmp();
+  assert.deepEqual(pythonUsers([root]), []);
+  fs.mkdirSync(path.join(root, 'ui-ux-pro-max'));
+  const info = detectMachine(mac());
+  const needs = { pythonFor: pythonUsers([tmp(), root]) };
+  const row = machineChecks(profile(tmp()), { ...info, python: null }, needs).find((c) => c.what === 'python');
+  assert.equal(row.level, 'fail');
+  assert.match(row.note, /ui-ux-pro-max runs on it; install Python 3/);
+  assert.ok(!machineChecks(profile(tmp()), info, needs).some((c) => c.what === 'python'));
+});
+
+test('gh: missing, logged out, logged in, on both systems', () => {
+  for (const base of [system, win]) {
+    assert.match(ghChecks(fake(base, { which: () => null }))[0].note, /cli\.github\.com/);
+    const which = () => '/bin/gh';
+    assert.match(ghChecks(fake(base, { which }))[0].note, /gh auth login/);
+    const [row] = ghChecks(fake(base, { which, commands: { 'gh auth status': 'github.com\n  Logged in as someone' } }));
+    assert.deepEqual([row.level, row.note], ['ok', 'logged in']);
+  }
+});
+
+const REG = 'reg query HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem /v LongPathsEnabled';
+const REPO = 'D:\\work\\site';
+const repoCommands = (autocrlf) => ({
+  [`git -C ${REPO} config --get core.autocrlf`]: autocrlf,
+  [`git -C ${REPO} rev-parse --show-toplevel`]: REPO,
+});
+
+test('Windows: long paths, npm script-shell and core.autocrlf each get a fix', () => {
+  assert.deepEqual(windowsChecks(mac()), []);
+  const bad = windowsChecks(fake(win, { commands: { ...repoCommands('true'), 'npm config get script-shell': 'null' } }), { dir: REPO, gitBash: BASH });
+  assert.deepEqual(levels(bad), [['warn', 'Windows long paths'], ['warn', 'npm script-shell'], ['warn', 'core.autocrlf']]);
+  assert.match(bad[0].note, /git config --global core\.longpaths true.*reg add .*LongPathsEnabled/);
+  assert.ok(bad[1].note.includes(`npm config set script-shell "${BASH}"`));
+  assert.match(bad[2].note, /\.gitattributes/);
+  const good = windowsChecks(fake(win, {
+    commands: {
+      ...repoCommands('true'),
+      'git config --get core.longpaths': 'true',
+      [REG]: 'HKEY_LOCAL_MACHINE\\SYSTEM\n    LongPathsEnabled    REG_DWORD    0x1',
+      'npm config get script-shell': BASH,
+    },
+    files: { [`${REPO}\\.gitattributes`]: '* text=auto eol=lf\n' },
+  }), { dir: REPO, gitBash: BASH });
+  assert.ok(good.every((c) => c.level === 'ok'), JSON.stringify(good));
+});
+
+test('shell rc files: an unguarded --use-on-cd warns with the line to use', () => {
+  const rc = (home, files) => shellRcChecks(fake(system, { files }), home);
+  const [row] = rc('/h', { '/h/.zshrc': 'eval "$(fnm env --use-on-cd)"\n' });
+  assert.deepEqual([row.level, row.what], ['warn', '~/.zshrc']);
+  assert.match(row.note, /if \[ -n "\$CLAUDECODE" \].*--shell zsh/);
+  assert.deepEqual(rc('/h', { '/h/.bashrc': '# eval "$(fnm env --use-on-cd)"\neval "$(fnm env)"\n' }), []);
+  // The line doctor suggests passes its own check.
+  const fixed = row.note.slice(row.note.indexOf('if [ -n'));
+  assert.deepEqual(rc('/h', { '/h/.zshrc': `${fixed}\n` }), []);
+  const onWindows = shellRcChecks(fake(win, { files: { 'C:\\Users\\j\\.bashrc': 'eval "$(fnm env --use-on-cd --shell bash)"' } }), 'C:\\Users\\j');
+  assert.match(onWindows[0].note, /--shell bash/);
+});
+
+const STUB = 'echo "Error: claude native binary not installed." >&2\nexit 1\n';
+
+test('the placeholder claude binary fails, behind a Windows shim or a Mac link', () => {
+  const pkg = 'C:\\npm\\node_modules\\@anthropic-ai\\claude-code';
+  const [row] = claudeBinaryChecks(fake(win, { which: () => 'C:\\npm\\claude.cmd', files: { [`${pkg}\\bin\\claude.exe`]: STUB } }));
+  assert.equal(row.level, 'fail');
+  assert.ok(row.note.includes(`\`node install.cjs\` in ${pkg}`), row.note);
+  const real = '/n/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe';
+  const linked = { which: () => '/n/bin/claude', realpath: () => real };
+  assert.equal(claudeBinaryChecks(fake(system, { ...linked, files: { [real]: STUB } })).length, 1);
+  assert.deepEqual(claudeBinaryChecks(fake(system, { ...linked, files: { [real]: STUB }, size: () => 200e6 })), []);
+  assert.deepEqual(claudeBinaryChecks(fake(system, { which: () => null })), []);
+});
+
+test('Playwright browsers are checked only for a project that depends on it', () => {
+  const pkg = JSON.stringify({ devDependencies: { '@playwright/test': '^1.50.0' } });
+  const onMac = { env: { HOME: '/h' }, files: { '/p/package.json': pkg } };
+  assert.deepEqual(playwrightChecks(fake(system, { files: { '/p/package.json': '{}' } }), '/p'), []);
+  assert.deepEqual(playwrightChecks(fake(system, { files: { '/p/package.json': 'not json' } }), '/p'), []);
+  const cache = '/h/Library/Caches/ms-playwright';
+  assert.match(playwrightChecks(fake(system, { ...onMac, dirs: { [cache]: ['ffmpeg-1013'] } }), '/p')[0].note, /npx playwright install/);
+  assert.equal(playwrightChecks(fake(system, { ...onMac, dirs: { [cache]: ['chromium-1254'] } }), '/p')[0].level, 'ok');
+  const local = 'C:\\Users\\j\\AppData\\Local\\ms-playwright';
+  const onWindows = fake(win, { files: { [`${REPO}\\package.json`]: pkg }, dirs: { [local]: ['webkit-2370'] } });
+  assert.deepEqual(playwrightChecks(onWindows, REPO).map((c) => [c.level, c.note]), [['ok', local]]);
+});
+
+test('setupChecks on a healthy Mac has nothing to fix', () => {
+  const sys = fake(system, { which: (c) => (c === 'gh' ? '/bin/gh' : null), commands: { 'gh auth status': 'ok' } });
+  assert.deepEqual(levels(setupChecks(sys, { home: '/h' })), [['ok', 'gh']]);
+});
+
+test('machine.md on Windows: path rewriting, the fnm guard, the Python command and VS Code\'s terminal', () => {
+  const appData = 'C:\\Users\\j\\AppData\\Roaming';
+  const settings = `${appData}\\Code\\User\\settings.json`;
+  const withSettings = (text) => detectMachine(win({ env: { APPDATA: appData }, read: (f) => (f === settings ? text : null) }));
+  const text = renderMachine(withSettings('{\n  // mine\n  "terminal.integrated.defaultProfile.windows": "Git Bash",\n}\n'));
+  assert.match(text, /MSYS_NO_PATHCONV=1/);
+  assert.match(text, /skipped when `CLAUDECODE` is set/);
+  assert.match(text, /A skill that calls `python` gets this command/);
+  assert.match(text, /VS Code's default terminal: Git Bash/);
+  assert.equal(withSettings('  // "terminal.integrated.defaultProfile.windows": "Git Bash"\n').vscodeTerminal, null);
+  assert.equal(withSettings('  "terminal.integrated.defaultProfile.windows": "x`\\nrun this"\n').vscodeTerminal, null);
+  assert.doesNotMatch(renderMachine(detectMachine(mac())), /MSYS|CLAUDECODE|VS Code/);
 });

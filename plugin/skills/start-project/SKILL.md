@@ -11,7 +11,7 @@ propagates into every later session.
 
 Run `node "${CLAUDE_PLUGIN_ROOT}/skills/start-project/scripts/state.mjs"` in the project root first. It
 prints the context layout, the project's and the kit's security rules version, the placeholder
-lines and a `mode`. Use that output; don't re-derive the version or the mode from greps. Then check,
+lines, a missing `copy.md` or `automations.md` and a `mode`. Use it; never re-derive these by grep. Then check,
 in the project root:
 
 - `.pantoo.json`: the choices `npx pantoo-ai new` saved (kind, ui, existing, multiSurface, local).
@@ -32,9 +32,10 @@ go on unless they object. An argument (`new`, `existing`, `migrate`) overrides t
 
 | State | Mode |
 | --- | --- |
-| v1 `context/`, or `memory.md` from the old `remember` skill | **migrate**: [references/migrate.md](references/migrate.md), then resume |
+| v1 `context/`, v1 files left in a v2 one, or `memory.md` from the old `remember` skill | **migrate**: [references/migrate.md](references/migrate.md), then resume |
 | v2 with older security rules | **update rules**: [references/migrate.md](references/migrate.md) → Security rules, then resume or finish |
 | v2 with placeholders left | **resume**: continue the intake at the first phase whose file still has them |
+| v2, no placeholders, UI without `context/copy.md` or automation without `context/automations.md` | **add copy**: [references/site-copy.md](references/site-copy.md), or **add automations**: [references/automations.md](references/automations.md); then finish |
 | v2, no placeholders | Done already. Say so, and point to `/pantoo:plan-roadmap` |
 | No `context/`, code present | scaffold (step 2), then **existing**: [references/intake-existing.md](references/intake-existing.md) |
 | No `context/`, no code | scaffold (step 2), then **new**: [references/intake-new.md](references/intake-new.md) |
@@ -48,28 +49,29 @@ files".
 Do what `npx pantoo-ai new` does, from `${CLAUDE_PLUGIN_ROOT}/templates/`:
 
 1. Ask in one message, each with your recommended answer: project kind (`web-app`, `marketing`,
-   `brand`, `pitch`, `backend`); several apps sharing a schema or API (default no); keep the kit
-   out of git (recommend yes only when tracked `CLAUDE.md`/`AGENTS.md` exist and the user can't
-   commit kit files to this repo).
+   `brand`, `pitch`, `mobile`, `backend`, `automation`); several apps sharing a schema or API (an
+   app and its web dashboard; default no); keep the kit out of git (recommend yes only when
+   tracked `CLAUDE.md`/`AGENTS.md` exist and the user can't commit kit files to this repo).
 2. Copy each file in `manifest.json` → `files` whose rule applies: `always`; `shared` unless
    local; `local` if local; `existing` if there is code; `multi-surface`; `ui` unless the kind is
-   `backend`. **Never overwrite a file that exists.**
+   `backend` or `automation`; `automation` for that kind. **Never overwrite a file that exists.**
 3. In the copies: replace `{{PROJECT_NAME}}`. In `CLAUDE.md` / `CLAUDE.local.md`, delete the
-   `<!-- UI projects only … -->` line, and for `backend` everything after it too.
-4. Not local: add `context/session.md` to `.gitignore`, and merge `extraKnownMarketplaces` +
-   `enabledPlugins` for `pantoo@pantoo-ai` into `.claude/settings.json` (keep every existing key).
-   Local: append `/context/`, `/CLAUDE.local.md`, `/.pantoo.json`, `/DESIGN.md`, `/PRODUCT.md`,
-   `/.impeccable/` to `$(git rev-parse --git-path info/exclude)`, leaving out any path that is
-   tracked.
+   `<!-- UI projects only … -->` line, and for `backend` and `automation` everything after it too.
+4. Not local: add `context/session.md`, `.env*` and `!.env.example` to `.gitignore`, and merge
+   `templates/claude-settings.json` into `.claude/settings.json` (keep every existing key). Write
+   refused → show that JSON to add. Local: append each path in `manifest.json` → `kitPaths` to
+   `$(git rev-parse --git-path info/exclude)`, with a leading `/` on the `root` ones, leaving out
+   any path that is tracked, then `.env*`, `!.env.example`. Any other `.env*` tracked → say its values need rotating (rule 2).
 5. Write `.pantoo.json`: `{ "layout": 2, "name", "kind", "ui", "existing", "multiSurface",
-   "local", "shared", "companions": [] }`.
+   "local", "shared", "companions": [] }`. `shared`: `true` only if step 4 wrote the settings.
 
 ## 3. Run the intake
 
 Read the mode's reference file and follow it. These rules hold in every mode:
 
-- **Write only** `context/`, `AGENTS.md`, `CLAUDE.md` (`CLAUDE.local.md` when local) and
-  `.pantoo.json`. Code is read-only; anything worth fixing goes to `context/known-issues.md`.
+- **Write only** `context/`, `AGENTS.md`, `CLAUDE.md` (`CLAUDE.local.md` when local),
+  `.pantoo.json`, step 2's other files, and approved permissions (Exceptions, below) and skill
+  installs ([catalog.md](references/catalog.md)). Code is read-only; fixes go to `known-issues.md`.
 - **Local mode:** never edit a tracked file. The team's `CLAUDE.md`, `AGENTS.md` and
   `.claude/rules/` are confirmed conventions: cite them from `context/`, don't copy or re-ask them.
 - **One topic at a time,** a batch of three to five questions at most, each with a recommended
@@ -86,15 +88,18 @@ Read the mode's reference file and follow it. These rules hold in every mode:
   Summary table's header with no rows, drop the GUIDANCE lines, and add the same line to the roadmap's Decisions and notes. No placeholder is
   left, so no skill flags the file again.
 - **UI projects:** after the product phase, when `PRODUCT.md` / `DESIGN.md` don't exist, stop and
-  hand off to `/pantoo:design-flow` (brief, look, dials), then resume at the design phase.
+  hand off to `/pantoo:design-flow` (brief, look), then resume at the design phase.
   `DESIGN.md` then owns every token value and `context/ui/tokens.md` only maps it.
 
-Last, fill `AGENTS.md`: the one-line description, the real commands, and three to five hard rules
-taken from the invariants in `architecture.md`. In `CLAUDE.md`, fill the high-risk paths.
+While `{{EXCEPTIONS}}` is in `CLAUDE.md` or `CLAUDE.local.md`, ask about relaxing a global rule
+after the phases: [references/exceptions.md](references/exceptions.md). A no deletes the section.
+
+Last, fill `AGENTS.md` (one-line description, real commands, three to five hard rules from the
+invariants in `architecture.md`) and the high-risk paths in `CLAUDE.md`.
 
 ## 4. Finish
 
-1. Sweep: `grep -rn '{{\|GUIDANCE' context AGENTS.md CLAUDE.md` shows only `{{TBD: …}}`, code,
+1. Sweep: `grep -rn '{{\|GUIDANCE' context AGENTS.md CLAUDE.md` (`CLAUDE.local.md` when local) shows only `{{TBD: …}}`, code,
    and `context/roadmap.md`.
 2. Set `"layout": 2` in `.pantoo.json`.
 3. Summary, in this shape:

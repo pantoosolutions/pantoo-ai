@@ -69,6 +69,9 @@ under test. More than ~10 files → the `Explore` agent returns a map first.
   matters. No assertion with a fallback (`?? 0`, an optional skip): a missing value must fail.
 - Once per new test file: change one expected value, watch the test fail, restore it.
 
+Text users read changed, `context/copy.md` exists and the project has no copy check → offer one
+([references/copy-guard.md](references/copy-guard.md)); a yes covers its test file.
+
 ## 4. Run
 
 Run through the `verifier` agent with the terse reporter; on retries, only the failing files.

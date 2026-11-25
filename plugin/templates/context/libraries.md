@@ -38,7 +38,7 @@ data may be stale.
 
 ## {{LIBRARY_NAME}}
 
-**Check first:** {{Skill / MCP availability note for this library}}
+**Check first:** {{Skill: <names> (<repo>@<pin>) | Plugin: <name> (<repo>@<pin>) | none: ctx7}}
 
 ### {{Usage area — e.g. Initialization / Queries / Calls}}
 

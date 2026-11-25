@@ -15,7 +15,8 @@ brand-specific. It must not read as the source brand.
 
 **B. Generate one.** Use ui-ux-pro-max to generate a design system for the product (one line: what it
 does, who it's for), then convert it into a `DESIGN.md` in Google's DESIGN.md format at the root.
-Delete the generator's intermediate folder once `DESIGN.md` holds everything.
+Its `MASTER.md` and page files are input to this step, never a row in Sources: delete the generator's
+intermediate folder once `DESIGN.md` holds everything.
 
 **C. From the project's designs.** Read [sources.md](sources.md) and follow sections 1–4: settle the
 way (token file, code, live tool over MCP, link or files), record the source, read it, write a
@@ -35,23 +36,12 @@ form: plain `npx @google/design.md` prints nothing on Windows and looks like a p
 
 Mock the main screen as one self-contained `design-preview.html` at the root: static HTML, inline CSS,
 realistic mock data, no framework, built only from `DESIGN.md` and `PRODUCT.md`. Ask the developer to
-open it at desktop and phone width. Wrong look → change `DESIGN.md` (or try another route into
-`design-preview-b.html` and compare), lint, preview again. Iterate here; it's cheap now and expensive
-after the build starts. Delete the preview files when the look is agreed; they're never a source.
+open it at desktop and phone width. Write it directly: taste doesn't run on the preview.
 
-## 4. Dials
+Wrong look → change `DESIGN.md` (or try another route into `design-preview-b.html` and compare), lint,
+preview again. Iterate here; it's cheap now and expensive after the build starts. Delete the preview files when the look is agreed; they're never a source.
 
-Record taste's three dials for this project in `CLAUDE.md` → Design, inferred from `PRODUCT.md` and
-confirmed with the developer (taste's own presets are the starting point):
-
-```markdown
-Taste dials: DESIGN_VARIANCE <1–10> · MOTION_INTENSITY <1–10> · VISUAL_DENSITY <1–10>
-```
-
-Dashboards and data-heavy tools sit low on variance and high on density; marketing sites the
-opposite; trust-first and regulated products low on both variance and motion.
-
-## 5. Export (once the stack is known)
+## 4. Export (once the stack is known)
 
 Tailwind v4: `npx -y -p @google/design.md designmd export --format css-tailwind DESIGN.md > <styles>/theme.css`,
 imported from the main CSS file. Tailwind v3: `--format json-tailwind` into `theme.extend`. Otherwise

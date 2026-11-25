@@ -11,7 +11,8 @@ export function profile(home) {
     home: root,
     claudeDir: path.join(root, '.claude'),
     configFile: path.join(root, '.pantoo', 'config.json'),
-    // Passed to the `claude` CLI so it installs into the same profile.
-    env: home ? { ...process.env, HOME: root, CLAUDE_CONFIG_DIR: path.join(root, '.claude') } : process.env,
+    // Passed to the `claude` CLI and installers so they use the same profile. Node finds the home
+    // folder through USERPROFILE on Windows, HOME elsewhere.
+    env: home ? { ...process.env, HOME: root, USERPROFILE: root, CLAUDE_CONFIG_DIR: path.join(root, '.claude') } : process.env,
   };
 }
