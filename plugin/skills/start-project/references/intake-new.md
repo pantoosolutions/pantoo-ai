@@ -95,6 +95,11 @@ By kind, ask these too, each with a recommendation:
   `n/a` ([automations.md](automations.md) → Then `security.md`).
 - `libraries.md`: one section per library from Phase 3, on how **this** project uses it, plus
   whether a skill or MCP server covers it. Keep the order-of-authority preamble.
+- Secrets: ask which keys and tokens the project needs on a developer's machine (API keys, a
+  CLI login such as wrangler or gh, `.env.local`). Write each one to `.pantoo.json` → `secrets`
+  as `{ "name", "env" }` or `{ "name", "file" }` (`~/…` or a path in the project), with a `note`
+  on where to get it. Names and paths only, never a value. Mark those rows in `standards.md`'s
+  env table "secret, in .pantoo.json".
 
 ## Phase 5: Review
 

@@ -118,6 +118,7 @@ missing and the command that fixes it.
 | `update` | Replay the saved choices with the latest kit and move the design tools' pins |
 | `doctor` | Check what's installed against what's expected, and the project in this folder |
 | `remove` | Undo `init` for a scope, from the saved record |
+| `move export` / `move import <folder>` | Carry a project's private state (ignored context files, Claude memory, permission rules) to a new clone on another machine. Never copies a secret; `doctor` lists the ones to set up |
 
 `npx pantoo-ai --help` lists every flag. Each prompt has one, so the CLI also runs non-interactively.
 

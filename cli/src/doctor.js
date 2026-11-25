@@ -9,7 +9,9 @@ import { OPTIONS, PLUGIN, agentFiles } from './install.js';
 import { OLD_MACHINE_RULES, detectMachine, findBrowser, realSystem, writeMachineRule } from './machine.js';
 import { MANIFEST, PROJECT_FILE, detect, templatesDir } from './scaffold.js';
 import { setupChecks } from './setup-checks.js';
+import { secretChecks } from './secrets.js';
 import { sourceChecks } from './sources.js';
+import { git } from './spawn.js';
 import { PLACEHOLDER } from '../../plugin/skills/start-project/scripts/state.mjs';
 import { COMPANIONS, TOOLS, designMissing, readHolds, skillState, stateRow } from './third-party.js';
 
@@ -255,10 +257,33 @@ export function lineEndingChecks(dir, { local = false } = {}) {
   // A local-only setup is in someone else's repo, which isn't asked to commit a file.
   if (!has && !local) add('warn', '.gitattributes', 'none; add one with `* text=auto eol=lf` and commit it');
   const crlf = crlfFiles(dir);
-  if (crlf?.checkout.length) add('warn', 'line endings', `CRLF on disk, LF in git: ${some(crlf.checkout)}; \`npx pantoo-ai move import\` repairs them`);
+  if (crlf?.checkout.length) add('warn', 'line endings', `CRLF on disk, LF in git: ${some(crlf.checkout)}; \`npx pantoo-ai doctor --fix line-endings\` repairs them`);
   if (crlf?.index.length) add('warn', 'line endings in git', `committed with CRLF: ${some(crlf.index)}; run \`git add --renormalize .\` and commit`);
   if (has && crlf && !crlf.checkout.length && !crlf.index.length) add('ok', 'line endings');
   return checks;
+}
+
+export const FIXES = ['line-endings'];
+
+// Rewrites the files that are CRLF on disk but LF in git, from the index. Only on a clean tree with
+// a committed .gitattributes, so the index holds the same content. Never reset, never rm --cached.
+// Returns { status: 'repaired' | 'unchanged' | 'skipped' | 'failed', note }.
+export function repairLineEndings(dir, { cwd } = {}) {
+  const top = git(dir, ['rev-parse', '--show-toplevel'], { cwd });
+  if (!top.ok) return { status: 'skipped', note: 'not a git repo' };
+  const root = path.resolve(top.out.trim());
+  const status = git(root, ['status', '--porcelain'], { cwd });
+  if (!status.ok || status.out.trim()) return { status: 'skipped', note: 'the tree has changes; commit or stash them, then run `npx pantoo-ai doctor --fix line-endings`' };
+  if (!git(root, ['ls-files', '--error-unmatch', '--', '.gitattributes'], { cwd }).ok) return { status: 'skipped', note: 'no committed .gitattributes; add one with `* text=auto eol=lf` and commit it' };
+  const files = crlfFiles(root)?.checkout ?? [];
+  if (!files.length) return { status: 'unchanged', note: 'no CRLF working files' };
+  // With a clean tree git sees these files as unchanged, so a plain checkout rewrites nothing.
+  for (const f of files) fs.rmSync(path.join(root, f), { force: true });
+  const out = git(root, ['checkout', '--pathspec-from-file=-', '--pathspec-file-nul'], { cwd, input: files.join('\0') });
+  if (!out.ok) return { status: 'failed', note: `git checkout failed; \`git checkout -- .\` restores the files (${out.err.trim().split('\n')[0]})` };
+  const left = crlfFiles(root)?.checkout ?? [];
+  if (left.length) return { status: 'failed', note: `still CRLF: ${some(left)}` };
+  return { status: 'repaired', note: `${files.length} file(s) now LF` };
 }
 
 // `Rules: vN` near the top of security.md; a file without the line predates it, so it's v1.
@@ -324,6 +349,7 @@ export function projectChecks(dir, prof) {
     if (missing.length) add('warn', `design pack: ${missing.join(', ')} not installed`, 'run `npx pantoo-ai add design`');
   }
   checks.push(...sourceChecks(dir, prof, project));
+  checks.push(...secretChecks(dir, prof));
 
   if (project.shared) {
     const settings = readJson(path.join(dir, '.claude', 'settings.json'), {});

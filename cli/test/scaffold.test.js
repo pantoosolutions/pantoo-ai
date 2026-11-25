@@ -135,7 +135,7 @@ test('doctor warns on a CRLF working file, but not on one that asks for CRLF', (
   const checks = projectChecks(dir, profile(tmp()));
   const row = checks.find((c) => c.what === 'line endings');
   assert.equal(row.level, 'warn');
-  assert.match(row.note, /1 file\(s\), e\.g\. a b\.txt.*move import/);
+  assert.match(row.note, /1 file\(s\), e\.g\. a b\.txt.*doctor --fix line-endings/);
 });
 
 test('doctor points files committed with CRLF at renormalize', () => {

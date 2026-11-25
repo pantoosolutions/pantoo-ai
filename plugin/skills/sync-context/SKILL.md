@@ -28,6 +28,7 @@ added again, so a second run on the same change makes no edits.
 | `context/known-issues.md` | An issue the diff fixed → `fixed`. A new issue with a real `path:line` → a summary row and its block |
 | `context/standards.md` | The env vars table: a new variable and where it's read |
 | `context/architecture.md` | The routes, modules or tables it lists, when the diff adds or removes one |
+| `.pantoo.json` | A new secret the change reads → an entry in `secrets` (`name`, and `env` or `file`), by name only, never a value |
 
 Flag, don't edit:
 

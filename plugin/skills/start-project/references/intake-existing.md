@@ -159,6 +159,10 @@ and agent config, following [automations.md](automations.md).
   bodies written to the database (8), `catch` blocks that allow in auth or payment code (22). Confirmed gaps go to `known-issues.md`, area `security`.
 - `libraries.md`: from real call sites at the lockfile version: initialisation, client/server
   split, the project's wrapper, gotchas from comments and commits, the canonical example file.
+- Secrets: from `.env*` files, `process.env.X` reads and the CLIs the scripts call (wrangler,
+  gh, cloud CLIs), list the keys a developer needs, confirm them, and write each to
+  `.pantoo.json` → `secrets` (`name`, then `env`, or `file` as `~/…` or a project path, and a
+  `note`). Names and paths only, never a value. Mark those env rows "secret, in .pantoo.json".
 
 ### Phase 6: Debt → `known-issues.md`
 

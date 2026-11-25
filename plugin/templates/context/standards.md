@@ -78,7 +78,8 @@ The build agent operates as a senior engineer:
 ## Environment Variables
 
 > 🧭 GUIDANCE: Where they're defined, the secret-vs-public rule, and a table of the variables
-> the project uses (fill as they're introduced).
+> the project uses (fill as they're introduced). Mark a secret's row "secret, in .pantoo.json":
+> its name goes in `.pantoo.json` → `secrets`, so `doctor` reports it present or missing.
 
 - {{ENV_RULE}}
 

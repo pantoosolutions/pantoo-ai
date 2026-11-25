@@ -109,6 +109,17 @@ export function excludeLocal(dir, lines) {
   return appendLines(path.resolve(dir, rel), '# pantoo-ai: local only, never commit', lines);
 }
 
+// --local: every kit path (MANIFEST.kitPaths) that git doesn't track goes in .git/info/exclude.
+// Used by `new --local` and `move import`. Returns true when lines were added.
+export function excludeKitPaths(dir) {
+  const rel = git(dir, ['rev-parse', '--git-path', 'info/exclude']);
+  if (!rel) throw new Error('--local needs a git repo (it hides the files in .git/info/exclude).');
+  // An `any-depth` path gets no leading slash, so git matches it in any folder.
+  const paths = Object.entries(MANIFEST.kitPaths).map(([p, depth]) => (depth === 'root' ? `/${p}` : p));
+  const lines = paths.filter((p) => !isTracked(dir, p.replace(/^\/|\/$/g, '')));
+  return appendLines(path.resolve(dir, rel), '# pantoo-ai: local only, never commit', lines);
+}
+
 // --local: keeps the companion folders and the lock file out of git too.
 export const hideCompanions = (dir, names) => excludeLocal(dir, [...names.map((n) => `/.claude/skills/${n}/`), '/skills-lock.json']);
 
@@ -141,12 +152,8 @@ export function scaffold(dir, choices) {
   if (skipContext) results.push({ what: 'context/', status: 'kept', note: `v1 layout; run /pantoo:start-project to migrate` });
 
   if (choices.local) {
-    const exclude = found.isRepo ? path.resolve(dir, git(dir, ['rev-parse', '--git-path', 'info/exclude'])) : null;
-    if (!exclude) throw new Error('--local needs a git repo (it hides the files in .git/info/exclude).');
-    // An `any-depth` path gets no leading slash, so git matches it in any folder.
-    const paths = Object.entries(MANIFEST.kitPaths).map(([rel, depth]) => (depth === 'root' ? `/${rel}` : rel));
-    const lines = paths.filter((p) => !isTracked(dir, p.replace(/^\/|\/$/g, '')));
-    const added = appendLines(exclude, '# pantoo-ai: local only, never commit', lines);
+    if (!found.isRepo) throw new Error('--local needs a git repo (it hides the files in .git/info/exclude).');
+    const added = excludeKitPaths(dir);
     results.push({ what: '.git/info/exclude', status: added ? 'updated' : 'unchanged' });
   } else {
     // No leading slash on `.taste-skill/`: taste may build in a folder below the root.

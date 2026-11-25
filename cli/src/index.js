@@ -1,7 +1,8 @@
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import * as p from '@clack/prompts';
-import { acceptSettings, doctor } from './doctor.js';
+import { FIXES, acceptSettings, doctor, repairLineEndings } from './doctor.js';
+import { exportMove, importMove } from './move.js';
 import { GUARDS, OPTIONS, install } from './install.js';
 import { add, addNames, remove, update } from './manage.js';
 import { profile } from './paths.js';
@@ -19,6 +20,7 @@ const HELP = `pantoo-ai <command>   (--version prints the version)
   update    replay the saved choices and move third-party pins
   remove    undo init for a scope, from the saved record
   doctor    check what is installed against what is expected (and this project, if set up)
+  move      carry a project's private state to a new clone: move export, then move import <folder>
 
 init flags
   --yes                   accept the defaults, no prompts
@@ -71,7 +73,20 @@ doctor flags
   --dir <dir>             the project folder, default the current one
   --accept <key>          a settings.json value of yours that differs from the kit's on purpose:
                           shown as ok until the kit's value for that key changes
+  --fix line-endings      first rewrite the files that are CRLF on disk but LF in git (clean tree only)
   --home <dir>            check another profile
+
+move export flags         writes ignored kit files, project memory and permission rules; never a secret
+  --to <folder>           where to write, default ~/pantoo-move/<name>-<time>/ (outside the repo, empty)
+  --dir <dir>             the project, default the current folder
+  --home <dir>            as in init
+
+move import <folder>      run in the new clone: checks remote, branch and HEAD, then puts things back
+  --dir <dir>             the clone, default the current folder
+  --allow <n,…|all>       add these permission rules from the printed list (never added without this or a yes)
+  --take <path|all>       replace a file that differs from yours (a backup is kept); repeatable
+  --yes                   ask nothing; never grants a permission
+  --home <dir>            as in init
 `;
 
 const ICON = { ok: '✓', warn: '!', fail: '✗' };
@@ -170,6 +185,36 @@ async function runNew(values, run) {
   console.log('\nNext: open Claude Code in this folder and run /pantoo:start-project.');
 }
 
+// Prompts for move import; null without a TTY, so nothing is granted or replaced unasked.
+const clackAsk = {
+  async confirm(message) {
+    const ok = await p.confirm({ message, initialValue: false });
+    return !p.isCancel(ok) && ok;
+  },
+  async multiselect(message, options) {
+    const picked = await p.multiselect({ message, options, initialValues: [], required: false });
+    return p.isCancel(picked) ? [] : picked;
+  },
+};
+
+async function runMove(values, positionals) {
+  const prof = profile(values.home);
+  const dir = path.resolve(values.dir ?? '.');
+  const [sub, folder] = positionals;
+  if (sub === 'export') {
+    const r = exportMove({ prof, dir, to: values.to });
+    for (const l of r.lines) console.log(l);
+    return;
+  }
+  if (sub !== 'import') throw new Error('move needs export or import: `pantoo-ai move export`, `pantoo-ai move import <folder>`.');
+  if (!folder) throw new Error('move import needs the folder `move export` wrote.');
+  const r = await importMove({ prof, dir, folder, allow: values.allow, take: values.take ?? [], ask: interactive(values) ? clackAsk : null });
+  for (const l of r.lines) console.log(l);
+  console.log('\nDoctor:');
+  // Exit 0 even with doctor's findings or pending answers: the import itself went through.
+  printChecks(doctor(prof, r.root));
+}
+
 async function runRemove(values, run) {
   const scope = values.scope ?? 'user';
   if (!['user', 'project'].includes(scope)) throw new Error('--scope must be user or project.');
@@ -211,6 +256,10 @@ export async function main(argv, { run = defaultRun, fetch: get = globalThis.fet
       hold: { type: 'string', multiple: true },
       release: { type: 'string', multiple: true },
       accept: { type: 'string', multiple: true },
+      to: { type: 'string' },
+      allow: { type: 'string' },
+      take: { type: 'string', multiple: true },
+      fix: { type: 'string' },
       ...Object.fromEntries(Object.keys(OPTIONS).map((id) => [`no-${id}`, { type: 'boolean' }])),
     },
   });
@@ -218,6 +267,7 @@ export async function main(argv, { run = defaultRun, fetch: get = globalThis.fet
   if (command === 'init') return runInit(values, run);
   if (command === 'new') return runNew(values, run);
   if (command === 'remove') return runRemove(values, run);
+  if (command === 'move') return runMove(values, positionals);
   if (command === 'update') {
     const hold = values.hold ?? [];
     const release = values.release ?? [];
@@ -235,6 +285,11 @@ export async function main(argv, { run = defaultRun, fetch: get = globalThis.fet
     if (positionals[0] === 'source') return show(addSource({ name: positionals[1], dir }));
     show(add({ name: positionals[0], prof: profile(values.home), dir, force: values.force, companion: values.companion, run }));
   } else if (command === 'doctor') {
+    if (values.fix !== undefined && !FIXES.includes(values.fix)) throw new Error(`--fix takes one of: ${FIXES.join(', ')}.`);
+    if (values.fix === 'line-endings') {
+      const r = repairLineEndings(dir, { cwd: profile(values.home).home });
+      show([{ what: 'line endings', status: r.status === 'failed' ? 'FAILED' : r.status, note: r.note }]);
+    }
     show(acceptSettings(profile(values.home), values.accept ?? []));
     process.exitCode = printChecks(doctor(profile(values.home), dir));
   }
