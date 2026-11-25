@@ -6,7 +6,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { lineEndingChecks, projectChecks } from '../src/doctor.js';
 import { profile } from '../src/paths.js';
-import { scaffold } from '../src/scaffold.js';
+import { MANIFEST, scaffold, templatesDir } from '../src/scaffold.js';
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'pantoo-new-'));
 const read = (dir, rel) => fs.readFileSync(path.join(dir, rel), 'utf8');
@@ -72,6 +72,30 @@ test('local mode hides everything in .git/info/exclude', () => {
   fs.writeFileSync(path.join(dir, 'site/.taste-skill/build.json'), '{}');
   const status = spawnSync('git', ['-C', dir, 'status', '--porcelain'], { encoding: 'utf8' }).stdout;
   assert.equal(status, '');
+});
+
+test('local mode writes one exclude line per kit path, leaving tracked ones out', () => {
+  const dir = tmp();
+  spawnSync('git', ['init', '-q', dir]);
+  fs.writeFileSync(path.join(dir, 'AGENTS.md'), 'the team\'s');
+  spawnSync('git', ['-C', dir, 'add', 'AGENTS.md']);
+  scaffold(dir, { ...base, local: true, share: false });
+  const lines = read(dir, '.git/info/exclude').split('\n').filter((l) => l && !l.startsWith('#'));
+  assert.deepEqual(lines, [
+    '/context/', '/CLAUDE.md', '/CLAUDE.local.md', '/DESIGN.md', '/PRODUCT.md', '/.pantoo.json',
+    '/skills-lock.json', '/.claude/', '/.impeccable/', '/.impeccable-live/', '.taste-skill/',
+  ]);
+});
+
+// The grep is one shell command, so it carries its own copy of the list. `*.md` covers the .md paths.
+test('review-change\'s grep skips every kit path', () => {
+  const skill = fs.readFileSync(path.join(templatesDir, '../skills/review-change/SKILL.md'), 'utf8');
+  const command = skill.split('\n').find((l) => l.includes('git diff --no-ext-diff'));
+  const excluded = [...command.matchAll(/':\(exclude(?:,glob)?\)([^']+)'/g)].map((m) => m[1]);
+  const wanted = Object.entries(MANIFEST.kitPaths)
+    .filter(([rel]) => !rel.endsWith('.md'))
+    .map(([rel, depth]) => (depth === 'root' ? rel.replace(/\/$/, '') : `**/${rel}**`));
+  assert.deepEqual(excluded.sort(), ['*.md', ...wanted].sort());
 });
 
 const gitIn = (dir, ...args) => {

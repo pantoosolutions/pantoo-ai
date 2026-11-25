@@ -134,7 +134,8 @@ export function scaffold(dir, choices) {
   if (choices.local) {
     const exclude = found.isRepo ? path.resolve(dir, git(dir, ['rev-parse', '--git-path', 'info/exclude'])) : null;
     if (!exclude) throw new Error('--local needs a git repo (it hides the files in .git/info/exclude).');
-    const paths = ['/context/', '/CLAUDE.local.md', `/${PROJECT_FILE}`, '/DESIGN.md', '/PRODUCT.md', '/.impeccable/', '/.impeccable-live/', '.taste-skill/'];
+    // An `any-depth` path gets no leading slash, so git matches it in any folder.
+    const paths = Object.entries(MANIFEST.kitPaths).map(([rel, depth]) => (depth === 'root' ? `/${rel}` : rel));
     const lines = paths.filter((p) => !isTracked(dir, p.replace(/^\/|\/$/g, '')));
     const added = appendLines(exclude, '# pantoo-ai: local only, never commit', lines);
     results.push({ what: '.git/info/exclude', status: added ? 'updated' : 'unchanged' });

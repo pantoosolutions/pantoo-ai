@@ -58,9 +58,9 @@ Do what `npx pantoo-ai new` does, from `${CLAUDE_PLUGIN_ROOT}/templates/`:
    `<!-- UI projects only … -->` line, and for `backend` everything after it too.
 4. Not local: add `context/session.md` to `.gitignore`, and merge `extraKnownMarketplaces` +
    `enabledPlugins` for `pantoo@pantoo-ai` into `.claude/settings.json` (keep every existing key).
-   Local: append `/context/`, `/CLAUDE.local.md`, `/.pantoo.json`, `/DESIGN.md`, `/PRODUCT.md`,
-   `/.impeccable/` to `$(git rev-parse --git-path info/exclude)`, leaving out any path that is
-   tracked.
+   Local: append each path in `manifest.json` → `kitPaths` to
+   `$(git rev-parse --git-path info/exclude)`, with a leading `/` on the `root` ones, leaving out
+   any path that is tracked.
 5. Write `.pantoo.json`: `{ "layout": 2, "name", "kind", "ui", "existing", "multiSurface",
    "local", "shared", "companions": [] }`.
 
