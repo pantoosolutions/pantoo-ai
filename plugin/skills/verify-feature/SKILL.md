@@ -49,6 +49,10 @@ Start it in the background, then for each behaviour:
 Watch the server and console logs throughout. Record each check as you run it: the command or URL,
 and what came back. That ledger is the evidence.
 
+The change adds or edits text users read → proofread those strings, following
+[../review-change/references/proofread.md](../review-change/references/proofread.md). A finding
+changes an AC's verdict only when the AC is about that text.
+
 ## 3. Verdict per AC and surface
 
 - **met**: passed, and you can cite its ledger line.
@@ -82,6 +86,9 @@ Stop every process you started. Change no code and no tests. Write
 
 ## Failing or owed
 - AC-n: what went wrong, with the exact error → diagnose-problem | build-feature
+
+## Copy
+- `path:line` "<string>": what's wrong → rewrite (proofread by <model>; leave out when no text changed)
 
 ## Fragile but passing
 - <slow response, console warning, missing empty state>; review-change reads this

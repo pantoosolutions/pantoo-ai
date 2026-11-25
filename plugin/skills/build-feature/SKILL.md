@@ -74,7 +74,8 @@ Owed → ask, recommending the first:
 2. Read what the tasks touch: `standards.md`, `architecture.md` (invariants), `libraries.md`, the
    triggered rows of `security.md`, and `known-issues.md` for the area (don't copy a listed
    mistake; don't "fix" an `intentional` one). UI: `DESIGN.md` and `context/ui/` (tokens, rules,
-   registry); reuse registry components and never invent a token.
+   registry); reuse registry components and never invent a token. Text users read follows
+   `context/copy.md`.
 3. An unfamiliar area, or more than ~3 files to locate → the `Explore` agent returns a map (files,
    patterns to match, helpers to reuse). Build from the map.
 4. Build in Build plan order. On Opus, give each chunk to the `implementer` agent with its exact

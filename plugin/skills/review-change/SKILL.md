@@ -61,11 +61,16 @@ With `release`, add: "Release pass: check every rule in `security.md`, the exten
 rule included. For each Project mapping row that is `todo` or `partial`, say what the code does
 now, with `path`, so the mapping can be updated."
 
+Text users read changed → also proofread it, following
+[references/proofread.md](references/proofread.md): a second spawn that sees the strings, not the
+diff.
+
 ## 4. Report
 
 The reviewer can't write files, so you write its findings to
 `context/reviews/<YYYY-MM-DD>-<NN or branch>-review.md`, most severe first, under one header line:
-verdict, reviewer model, `base..head`, spec. The reviewer failed or returned nothing → say so and
+verdict, reviewer model, `base..head`, spec. Proofread findings rank with the rest, tagged Copy.
+The reviewer failed or returned nothing → say so and
 offer to re-run; never write an empty or invented review.
 
 Then stop and fix nothing until the developer picks what to fix. A finding they call intentional is

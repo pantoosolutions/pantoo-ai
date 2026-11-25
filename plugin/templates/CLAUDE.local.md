@@ -42,4 +42,5 @@ Relaxed for this project only. Everything not listed here still applies.
 Read `context/ui/tokens.md`, `context/ui/rules.md` and `context/ui/registry.md` before any UI
 work, plus `DESIGN.md` and `PRODUCT.md` if they exist. Match the screens already built; don't
 restyle screens the task didn't touch. Record new components with `capture-ui`.
+Write text users read to `context/copy.md` (variant, register, terms).
 Which design tool runs at which step: `design-flow`.

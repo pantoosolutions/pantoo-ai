@@ -14,6 +14,7 @@
     "context/reviews/.gitkeep": "always",
     "context/known-issues.md": "existing",
     "context/contracts.md": "multi-surface",
+    "context/copy.md": "ui",
     "context/designs/README.md": "ui",
     "context/ui/tokens.md": "ui",
     "context/ui/rules.md": "ui",

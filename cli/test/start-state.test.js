@@ -41,3 +41,17 @@ test('an unanswered placeholder in CLAUDE.local.md resumes the intake', () => {
   assert.deepEqual(s.placeholders, ['CLAUDE.local.md:1: {{EXCEPTIONS}}']);
   assert.equal(s.mode, 'resume');
 });
+
+test('a finished UI project without copy.md gets the add-copy mode', () => {
+  const dir = project('Rules: v99\n');
+  fs.writeFileSync(path.join(dir, '.pantoo.json'), '{"ui":true}');
+  assert.equal(state(dir).mode, 'add copy');
+  fs.writeFileSync(path.join(dir, 'context', 'copy.md'), '# Copy\n');
+  assert.equal(state(dir).mode, 'done');
+});
+
+test('a project without a UI owes no copy.md', () => {
+  const dir = project('Rules: v99\n');
+  fs.writeFileSync(path.join(dir, '.pantoo.json'), '{"ui":false}');
+  assert.equal(state(dir).mode, 'done');
+});

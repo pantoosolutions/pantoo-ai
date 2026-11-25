@@ -11,7 +11,7 @@ propagates into every later session.
 
 Run `node "${CLAUDE_PLUGIN_ROOT}/skills/start-project/scripts/state.mjs"` in the project root first. It
 prints the context layout, the project's and the kit's security rules version, the placeholder
-lines and a `mode`. Use that output; don't re-derive the version or the mode from greps. Then check,
+lines, a UI project's missing `copy.md` and a `mode`. Use it; never re-derive these by grep. Then check,
 in the project root:
 
 - `.pantoo.json`: the choices `npx pantoo-ai new` saved (kind, ui, existing, multiSurface, local).
@@ -35,6 +35,7 @@ go on unless they object. An argument (`new`, `existing`, `migrate`) overrides t
 | v1 `context/`, or `memory.md` from the old `remember` skill | **migrate**: [references/migrate.md](references/migrate.md), then resume |
 | v2 with older security rules | **update rules**: [references/migrate.md](references/migrate.md) → Security rules, then resume or finish |
 | v2 with placeholders left | **resume**: continue the intake at the first phase whose file still has them |
+| v2 UI project without `context/copy.md`, no placeholders | **add copy**: [references/site-copy.md](references/site-copy.md), then finish |
 | v2, no placeholders | Done already. Say so, and point to `/pantoo:plan-roadmap` |
 | No `context/`, code present | scaffold (step 2), then **existing**: [references/intake-existing.md](references/intake-existing.md) |
 | No `context/`, no code | scaffold (step 2), then **new**: [references/intake-new.md](references/intake-new.md) |
@@ -91,11 +92,10 @@ Read the mode's reference file and follow it. These rules hold in every mode:
   `DESIGN.md` then owns every token value and `context/ui/tokens.md` only maps it.
 
 While `{{EXCEPTIONS}}` is in `CLAUDE.md` or `CLAUDE.local.md`, ask about relaxing a global rule
-once the phases are done: [references/exceptions.md](references/exceptions.md). A no deletes that
-whole section.
+after the phases: [references/exceptions.md](references/exceptions.md). A no deletes the section.
 
-Last, fill `AGENTS.md`: the one-line description, the real commands, and three to five hard rules
-taken from the invariants in `architecture.md`. In `CLAUDE.md`, fill the high-risk paths.
+Last, fill `AGENTS.md` (one-line description, real commands, three to five hard rules from the
+invariants in `architecture.md`) and the high-risk paths in `CLAUDE.md`.
 
 ## 4. Finish
 

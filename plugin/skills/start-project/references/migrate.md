@@ -72,6 +72,8 @@ old skills in `.claude/skills/{architect,imprint,review,recover,remember,find-do
 `# >>> personal claude context` block in `.git/info/exclude`. After approval, delete the skill
 copies and replace the block with the paths SKILL.md step 2 lists for local mode.
 
+A UI project also gets `context/copy.md`: [site-copy.md](site-copy.md).
+
 Finish: write or update `.pantoo.json` with `"layout": 2`, then resume the intake (SKILL.md
 step 3) at the first file that still has placeholders.
 

@@ -28,8 +28,13 @@ export function state(dir) {
   const placeholders = files.flatMap((f) => fs.readFileSync(f, 'utf8').split('\n')
     .map((l, i) => (PLACEHOLDER.test(l) ? `${path.relative(dir, f)}:${i + 1}: ${l.trim().slice(0, 100)}` : null)).filter(Boolean));
   const oldRules = proj !== null && proj < kit;
-  const mode = layout === 'v1' ? 'migrate' : layout === 'v2' ? (oldRules ? 'update rules' : placeholders.length ? 'resume' : 'done') : 'scaffold';
-  return { layout, rules: { project: proj, kit }, placeholders, mode };
+  // Same rule as `doctor`: only a UI project, as `.pantoo.json` records it, owes a copy.md.
+  let ui = false;
+  try { ui = JSON.parse(read(path.join(dir, '.pantoo.json')) ?? '{}').ui === true; } catch { /* unreadable: don't ask */ }
+  const missingCopy = layout === 'v2' && ui && !fs.existsSync(path.join(ctx, 'copy.md'));
+  const finished = placeholders.length ? 'resume' : missingCopy ? 'add copy' : 'done';
+  const mode = layout === 'v1' ? 'migrate' : layout === 'v2' ? (oldRules ? 'update rules' : finished) : 'scaffold';
+  return { layout, rules: { project: proj, kit }, placeholders, missingCopy, mode };
 }
 
 // Node realpaths the module URL, so compare real paths: the plugin dir may be reached through a symlink.
@@ -40,5 +45,6 @@ if (process.argv[1] && real(process.argv[1]) === real(fileURLToPath(import.meta.
   console.log(`security rules: project ${s.rules.project === null ? 'none (no security.md)' : 'v' + s.rules.project}, kit v${s.rules.kit}`);
   console.log(`placeholder lines: ${s.placeholders.length ? '\n  ' + s.placeholders.join('\n  ') : 'none'}`);
   if (s.placeholders.length) console.log('(text that only talks about a placeholder check is not an unfilled placeholder)');
+  if (s.missingCopy) console.log('context/copy.md: missing (UI project)');
   console.log(`mode: ${s.mode}`);
 }

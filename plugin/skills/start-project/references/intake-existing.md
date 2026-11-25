@@ -67,7 +67,7 @@ Phase 0  Scope and recon         agree what "the project" is; harvest prior docs
 Phase 1  Product                 context/overview.md
 Phase 2  Architecture as built   context/architecture.md
 Phase 3  Contracts               context/contracts.md (multi-surface only)
-Phase 4  Design as built         context/ui/tokens.md, rules.md, registry.md (UI only)
+Phase 4  Design as built         context/ui/tokens.md, rules.md, registry.md, copy.md (UI only)
 Phase 5  Standards as practised  context/standards.md, security.md, libraries.md
 Phase 6  Debt                    context/known-issues.md
 Phase 7  Verification            re-ground citations, contradiction sweep, coverage
@@ -125,7 +125,7 @@ standing risk). Write the **propagation checklist** from the last real change of
 paths and commands, in order, ending in how to verify. Drift between definition and consumers
 goes to `known-issues.md`.
 
-### Phase 4: Design as built (UI only; otherwise delete `context/ui/` and `context/designs/`)
+### Phase 4: Design as built (UI only; otherwise delete `context/ui/`, `context/designs/` and `context/copy.md`)
 
 1. Token source: `DESIGN.md` first; ask whether it records what's built or is the redesign
    target (target → differences are drift in `known-issues.md`; never averaged). It must lint
@@ -139,6 +139,8 @@ goes to `known-issues.md`.
    what stops a build agent rebuilding what exists.
 4. Several surfaces rendering one brand: ask first whether they are meant to look like one
    product; extract per surface, then diff; near-matches (`#F5F5F5` / `#F4F4F5`) are drift.
+
+5. The site copy, `copy.md`: [site-copy.md](site-copy.md).
 
 ### Phase 5: Standards as practised
 

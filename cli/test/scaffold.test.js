@@ -156,3 +156,18 @@ test('a clone with core.autocrlf on still checks out LF', () => {
   assert.doesNotMatch(read(clone, 'AGENTS.md'), /\r/);
   assert.deepEqual(warned(lineEndingChecks(clone)), []);
 });
+
+test('doctor warns a UI project without copy.md, and only a UI project', () => {
+  const copy = (dir) => projectChecks(dir, profile(tmp())).find((c) => c.what === 'context/copy.md');
+  const dir = tmp();
+  scaffold(dir, base);
+  assert.match(read(dir, 'context/copy.md'), /\{\{VARIANT\}\}/);
+  assert.equal(copy(dir), undefined);
+  fs.rmSync(path.join(dir, 'context/copy.md'));
+  assert.equal(copy(dir).level, 'warn');
+  assert.match(copy(dir).note, /start-project/);
+  const backend = tmp();
+  scaffold(backend, { ...base, kind: 'backend', ui: false });
+  assert.ok(!fs.existsSync(path.join(backend, 'context/copy.md')));
+  assert.equal(copy(backend), undefined);
+});

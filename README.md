@@ -7,7 +7,8 @@ up any project.
 - **A plugin, `pantoo`:** 13 skills for the whole loop (intake, roadmap, specs, build, verify, review,
   tests, docs) plus four agents and two hooks.
 - **Context templates:** an `AGENTS.md` index and a `context/` folder (overview, architecture, standards,
-  security rules, roadmap, specs, reviews) that every skill reads and updates.
+  security rules, roadmap, specs, reviews, and for UI projects the design and copy files) that every
+  skill reads and updates.
 - **Rules and settings:** model and token routing, library docs through ctx7, web access cheapest tool
   first, and no AI attribution in commits and PRs. Each one is optional.
 - **A CLI, `npx pantoo-ai`:** installs, updates, checks and removes all of the above, on macOS, Linux

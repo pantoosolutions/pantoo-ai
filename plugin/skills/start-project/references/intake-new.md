@@ -11,7 +11,7 @@ they haven't noticed they need to make. A good intake leaves the idea clearer th
 ```
 Phase 0  Orientation           the idea in one sentence, confirmed
 Phase 1  Product               context/overview.md
-Phase 2  Design (UI only)      context/ui/tokens.md, context/ui/rules.md
+Phase 2  Design (UI only)      context/ui/tokens.md, context/ui/rules.md, context/copy.md
 Phase 3  Architecture          context/architecture.md
 Phase 4  Standards             context/standards.md, context/security.md, context/libraries.md
 Phase 5  Review                read everything back
@@ -49,6 +49,8 @@ Phase 3.
 4. `rules.md`: layout, surfaces, type hierarchy, buttons, inputs, empty states, and **Do Nots**
    (one accent, all borders from the border token, no hard-coded hex). Where the design is
    silent, propose a default and confirm.
+
+Then the site copy, `copy.md`: [site-copy.md](site-copy.md).
 
 ## Phase 3: Architecture → `architecture.md`
 
