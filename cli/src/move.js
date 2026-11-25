@@ -396,8 +396,15 @@ function safeTarget(base, abs) {
   return null;
 }
 
+// A backup inside the repo holds private state under a name no ignore rule may cover: hide it.
+function backupHidden(g, root, file) {
+  const bak = backup(file);
+  if (!g(root, ['check-ignore', '-q', '--', posix(path.relative(root, bak))]).ok) excludeLocal(root, [`/${posix(path.relative(root, file))}.bak-*`]);
+  return bak;
+}
+
 // Puts one carried file in place: written, left alone, replaced (with a backup) or kept as yours.
-async function place({ abs, buf, token, take, ask, base }) {
+async function place({ abs, buf, token, take, ask, base, keep = backup }) {
   const unsafe = safeTarget(base, abs);
   if (unsafe) return { status: 'skipped', note: unsafe };
   if (!fs.existsSync(abs)) {
@@ -407,7 +414,7 @@ async function place({ abs, buf, token, take, ask, base }) {
   if (lf(fs.readFileSync(abs, 'utf8')) === lf(buf.toString('utf8'))) return { status: 'same' };
   const yes = take.has('all') || take.has(token) || (ask ? await ask.confirm(`${token} differs from the copy here. Replace yours (a backup is kept)?`) : false);
   if (!yes) return { status: 'kept', note: `differs; \`--take ${token}\` replaces yours` };
-  const bak = backup(abs);
+  const bak = keep(abs);
   writeFile(abs, buf);
   return { status: 'replaced', note: `backup ${path.basename(bak)}` };
 }
@@ -452,7 +459,7 @@ export async function importMove({ prof, dir, folder, allow, take = [], ask = nu
   const takes = new Set(take);
   for (const f of m.files) {
     const abs = path.join(root, ...f.path.split('/'));
-    const r = await place({ abs, buf: f.buf, token: f.path, take: takes, ask, base: root });
+    const r = await place({ abs, buf: f.buf, token: f.path, take: takes, ask, base: root, keep: (file) => backupHidden(g, root, file) });
     if (r.status === 'kept') pending.push(`--take ${f.path}`);
     if (['added', 'replaced'].includes(r.status) && !g(root, ['check-ignore', '-q', '--', f.path]).ok && !g(root, ['ls-files', '--', f.path]).out.trim()) {
       excludeLocal(root, [`/${f.path}`]);
@@ -533,7 +540,7 @@ async function grant(g, root, permissions, { allow, ask, pending }) {
     if (unsafe) {
       lines.push(`! ${SETTINGS_LOCAL}: skipped (${unsafe})`);
     } else {
-      if (fs.existsSync(file)) backup(file);
+      if (fs.existsSync(file)) backupHidden(g, root, file);
       const next = { ...settings, permissions: { ...settings.permissions } };
       for (const r of add) next.permissions[r.list] = [...(Array.isArray(next.permissions[r.list]) ? next.permissions[r.list] : []), r.rule];
       writeJson(file, next);

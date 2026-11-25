@@ -18,6 +18,7 @@ const gitIn = (dir, ...args) => {
   assert.equal(r.status, 0, r.stderr);
   return r.stdout;
 };
+const appendExclude = (dir, line) => fs.appendFileSync(path.join(dir, '.git', 'info', 'exclude'), `\n${line}\n`);
 const NO_ENV = {};
 
 // A bare remote, clone A (profile A) with the project, clone B (profile B) fresh from the remote.
@@ -180,6 +181,21 @@ test('a memory file that differs is kept and listed, then replaced on --take or 
   await imp(f, { ask: { confirm: async (m) => { asked.push(m); return true; }, multiselect: async () => [] } });
   assert.equal(read(mine), 'the owner decides alone\n');
   assert.match(asked[0], /memory\/owner\.md differs/);
+});
+
+test('a backup made inside the repo never shows up in git', async () => {
+  const f = fixture();
+  exp(f);
+  await imp(f);
+  put(path.join(f.b, 'context', 'session.md'), 'my own version\n');
+  put(path.join(f.b, '.claude', 'settings.local.json'), '{"env":{"TOKEN":"private"}}\n');
+  gitIn(f.b, 'check-ignore', '-q', 'context/session.md');
+  appendExclude(f.b, '/.claude/settings.local.json');
+  assert.equal(gitIn(f.b, 'status', '--porcelain'), '');
+  await imp(f, { take: ['context/session.md'], allow: '2' });
+  assert.ok(fs.readdirSync(path.join(f.b, 'context')).some((n) => n.startsWith('session.md.bak-')));
+  assert.ok(fs.readdirSync(path.join(f.b, '.claude')).some((n) => n.startsWith('settings.local.json.bak-')));
+  assert.equal(gitIn(f.b, 'status', '--porcelain', '-uall'), '');
 });
 
 test('a permission is never added without a yes', async () => {
