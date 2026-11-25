@@ -67,7 +67,7 @@ function realish(p) {
     if (up === head) break;
     head = up;
   }
-  return path.join(fs.realpathSync(head), ...tail);
+  return path.join(fs.realpathSync.native(head), ...tail);
 }
 
 const makeGit = (prof) => (dir, args, opts = {}) => gitRaw(dir, args, { cwd: prof.home, ...opts });
@@ -274,7 +274,7 @@ export function exportMove({ prof, dir, to, env = process.env, now = new Date() 
   const project = readJson(path.join(root, PROJECT_FILE), null);
   const name = (project?.name ? String(project.name) : path.basename(root)).replace(/[^\w.-]+/g, '-').slice(0, 60) || 'project';
   const target = path.resolve(to ?? path.join(prof.home, 'pantoo-move', `${name}-${stamp()}`));
-  if (within(fs.realpathSync(root), realish(target))) stop(`--to ${target} is inside the repo; pick a folder outside it.`);
+  if (within(fs.realpathSync.native(root), realish(target))) stop(`--to ${target} is inside the repo; pick a folder outside it.`);
   if (fs.existsSync(target) && (!fs.statSync(target).isDirectory() || fs.readdirSync(target).length)) stop(`${target} exists and isn't an empty folder.`);
 
   const declared = declaredSecretPaths(project, { root, home: prof.home });
@@ -358,14 +358,14 @@ function verified(folder, real, rel) {
   const st = fs.lstatSync(file, { throwIfNoEntry: false });
   if (!st) stop(`${rel} is missing: the folder is incomplete; wait for Drive to finish syncing, then run import again.`);
   if (!st.isFile()) stop(`${rel} in the folder isn't a plain file (a symlink?); export again.`);
-  if (!within(real, fs.realpathSync(file))) stop(`${rel} resolves outside the folder; export again.`);
+  if (!within(real, fs.realpathSync.native(file))) stop(`${rel} resolves outside the folder; export again.`);
   return { file, size: st.size };
 }
 
 export function readMoveFolder(folder) {
   const dir = path.resolve(folder);
   if (!fs.existsSync(path.join(dir, 'move.json'))) stop(`No move.json in ${dir}; give the folder \`move export\` wrote.`);
-  const real = fs.realpathSync(dir);
+  const real = fs.realpathSync.native(dir);
   if (fs.lstatSync(path.join(dir, 'move.json')).isSymbolicLink()) stop('move.json is a symlink; export again.');
   let m;
   try { m = JSON.parse(fs.readFileSync(path.join(dir, 'move.json'), 'utf8').replace(/^﻿/, '')); } catch { stop('move.json is not valid JSON: the folder is incomplete; wait for Drive to finish syncing.'); }

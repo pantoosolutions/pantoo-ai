@@ -11,7 +11,8 @@ import { profile } from '../src/paths.js';
 import { MANIFEST, excludeKitPaths } from '../src/scaffold.js';
 import { mergeSettings } from '../src/settings.js';
 
-const tmp = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pantoo-mv-')));
+// .native also expands a Windows short name (RUNNER~1), as git does.
+const tmp = () => fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'pantoo-mv-')));
 const put = (file, text) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, text); };
 const read = (file) => fs.readFileSync(file, 'utf8');
 const gitIn = (dir, ...args) => {
