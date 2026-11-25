@@ -92,9 +92,8 @@ test('export then import: session.md and memory land on the new machine', async 
   assert.deepEqual(r.manifest.memory.map((x) => x.name).sort(), ['MEMORY.md', 'owner.md']);
   assert.deepEqual(r.manifest.secrets, [{ name: 'api', env: 'API_TOKEN' }]);
   assert.ok(!read(path.join(f.to, 'move.json')).includes('"SECRET"'));
-  // An export from before the junk filter lists one; import skips it.
+  // An export from before the junk filter lists one, and Drive didn't sync it: import skips it.
   const mj = JSON.parse(read(path.join(f.to, 'move.json')));
-  put(path.join(f.to, 'files', 'context', '.DS_Store'), 'x');
   mj.files.push({ path: 'context/.DS_Store', sha256: crypto.createHash('sha256').update('x').digest('hex'), modified: mj.files[0].modified });
   fs.writeFileSync(path.join(f.to, 'move.json'), JSON.stringify(mj));
   put(path.join(memB(f), 'MEMORY.md'), '- [Mine](mine.md) — only here\n');

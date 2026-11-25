@@ -359,10 +359,12 @@ export function readMoveFolder(folder) {
     entries.push({ size, label: sub });
     return buf;
   };
-  const files = m.files.map((f) => {
+  const files = m.files.flatMap((f) => {
     if (!safeRel(f?.path)) bad(`files has a path that isn't a kit path inside the project: ${plain(f?.path, 80)}`);
+    // An export from before the junk filter may list one, and Drive doesn't sync it: never read it.
+    if (OS_JUNK.test(f.path)) return [];
     if (!isString(f.sha256) || !HEX.test(f.sha256)) bad(`${f.path} has no sha256`);
-    return { path: f.path, buf: check(`files/${f.path}`, f.sha256) };
+    return [{ path: f.path, buf: check(`files/${f.path}`, f.sha256) }];
   });
   const memory = m.memory.map((f) => {
     if (!isString(f?.name) || !MEMORY_NAME.test(f.name)) bad(`memory has a bad name: ${plain(f?.name, 80)}`);
@@ -449,7 +451,6 @@ export async function importMove({ prof, dir, folder, allow, take = [], ask = nu
 
   const takes = new Set(take);
   for (const f of m.files) {
-    if (OS_JUNK.test(f.path)) continue; // an older export may list one
     const abs = path.join(root, ...f.path.split('/'));
     const r = await place({ abs, buf: f.buf, token: f.path, take: takes, ask, base: root });
     if (r.status === 'kept') pending.push(`--take ${f.path}`);
