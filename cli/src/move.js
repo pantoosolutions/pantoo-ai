@@ -20,6 +20,8 @@ export const CLASSES = {
 // Inside a carried folder but not project data: impeccable's installed script, its live sessions,
 // and its per-developer overrides (which hold that machine's hook consent).
 const NOT_CARRIED = [/^\.impeccable\/bin\//, /^\.impeccable\/live\//, /^\.impeccable\/config\.local\.json$/];
+// Files the OS drops in folders (Finder, Explorer, macOS on FAT drives): never project data.
+const OS_JUNK = /(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini|\._[^/]*)$/i;
 export const CAPS = { files: 200, size: 5 * 1024 * 1024, total: 20 * 1024 * 1024 };
 const PERMISSION_LISTS = ['allow', 'deny', 'ask'];
 const SECRET_RULE = /bearer\s|ghp_|gho_|github_pat_|sk-[a-z0-9]|xox[abp]-|AKIA[0-9A-Z]{16}/i;
@@ -213,7 +215,7 @@ function checkCaps(entries) {
 // M1: the kit files git ignores here. Symlinks never travel.
 export function carried(g, root) {
   const out = g(root, ['ls-files', '-z', '--others', '--ignored', '--exclude-standard', '--', ...CLASSES.carry]);
-  return out.out.split('\0').filter(Boolean).filter((rel) => isCarried(rel)).flatMap((rel) => {
+  return out.out.split('\0').filter(Boolean).filter((rel) => isCarried(rel) && !OS_JUNK.test(rel)).flatMap((rel) => {
     const st = fs.lstatSync(path.join(root, rel), { throwIfNoEntry: false });
     return st?.isFile() ? [{ rel, size: st.size, mtime: st.mtime }] : [];
   });
@@ -447,6 +449,7 @@ export async function importMove({ prof, dir, folder, allow, take = [], ask = nu
 
   const takes = new Set(take);
   for (const f of m.files) {
+    if (OS_JUNK.test(f.path)) continue; // an older export may list one
     const abs = path.join(root, ...f.path.split('/'));
     const r = await place({ abs, buf: f.buf, token: f.path, take: takes, ask, base: root });
     if (r.status === 'kept') pending.push(`--take ${f.path}`);

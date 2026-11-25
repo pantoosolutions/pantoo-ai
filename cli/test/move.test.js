@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -84,13 +85,21 @@ function snapshot(...dirs) {
 
 test('export then import: session.md and memory land on the new machine', async () => {
   const f = fixture();
+  for (const junk of ['context/.DS_Store', 'context/specs/Thumbs.db', 'context/desktop.ini', 'context/._session.md']) put(path.join(f.a, junk), 'x');
+  fs.appendFileSync(path.join(f.a, '.git', 'info', 'exclude'), '.DS_Store\nThumbs.db\ndesktop.ini\n._*\n');
   const r = exp(f);
   assert.deepEqual(r.manifest.files.map((x) => x.path), ['context/session.md']);
   assert.deepEqual(r.manifest.memory.map((x) => x.name).sort(), ['MEMORY.md', 'owner.md']);
   assert.deepEqual(r.manifest.secrets, [{ name: 'api', env: 'API_TOKEN' }]);
   assert.ok(!read(path.join(f.to, 'move.json')).includes('"SECRET"'));
+  // An export from before the junk filter lists one; import skips it.
+  const mj = JSON.parse(read(path.join(f.to, 'move.json')));
+  put(path.join(f.to, 'files', 'context', '.DS_Store'), 'x');
+  mj.files.push({ path: 'context/.DS_Store', sha256: crypto.createHash('sha256').update('x').digest('hex'), modified: mj.files[0].modified });
+  fs.writeFileSync(path.join(f.to, 'move.json'), JSON.stringify(mj));
   put(path.join(memB(f), 'MEMORY.md'), '- [Mine](mine.md) — only here\n');
   const out = await imp(f);
+  assert.ok(!fs.existsSync(path.join(f.b, 'context', '.DS_Store')));
   assert.equal(read(path.join(f.b, 'context', 'session.md')), 'where I stopped\n');
   assert.equal(read(path.join(memB(f), 'owner.md')), 'the owner decides alone\n');
   assert.equal(read(path.join(memB(f), 'MEMORY.md')), '- [Mine](mine.md) — only here\n- [Owner](owner.md) — decides alone\n');
