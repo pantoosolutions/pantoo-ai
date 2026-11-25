@@ -13,7 +13,9 @@ final message.
 1. Use the `ctx7` CLI first, following the user's context7 rule: run
    `npx ctx7@latest library <name> "<question>"`, pick the best `/org/project` ID, then run
    `npx ctx7@latest docs <id> "<question>"`. Run at most 3 ctx7 commands. On a quota error, say
-   so in your answer.
+   so in your answer. In Git Bash on Windows (`uname -s` starts with `MINGW` or `MSYS`), put
+   `MSYS_NO_PATHCONV=1` before each ctx7 command, or the leading `/` of the ID is rewritten into
+   a Windows path.
 2. Fall back to official docs through WebFetch or WebSearch only if ctx7 has nothing relevant.
    Prefer the vendor's own docs over blogs.
 3. Never put secrets, keys or private code in a query.
