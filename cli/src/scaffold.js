@@ -125,12 +125,14 @@ export function scaffold(dir, choices) {
   if (choices.local) {
     const exclude = found.isRepo ? path.resolve(dir, git(dir, ['rev-parse', '--git-path', 'info/exclude'])) : null;
     if (!exclude) throw new Error('--local needs a git repo (it hides the files in .git/info/exclude).');
-    const paths = ['/context/', '/CLAUDE.local.md', `/${PROJECT_FILE}`, '/DESIGN.md', '/PRODUCT.md', '/.impeccable/', '/.impeccable-live/'];
+    const paths = ['/context/', '/CLAUDE.local.md', `/${PROJECT_FILE}`, '/DESIGN.md', '/PRODUCT.md', '/.impeccable/', '/.impeccable-live/', '.taste-skill/'];
     const lines = paths.filter((p) => !isTracked(dir, p.replace(/^\/|\/$/g, '')));
     const added = appendLines(exclude, '# pantoo-ai: local only, never commit', lines);
     results.push({ what: '.git/info/exclude', status: added ? 'updated' : 'unchanged' });
   } else {
-    const added = appendLines(path.join(dir, '.gitignore'), '# pantoo-ai: per-person session state', ['context/session.md']);
+    // No leading slash on `.taste-skill/`: taste may build in a folder below the root.
+    const ignored = ['context/session.md', ...(choices.ui ? ['.taste-skill/'] : [])];
+    const added = appendLines(path.join(dir, '.gitignore'), '# pantoo-ai: per-person state', ignored);
     results.push({ what: '.gitignore', status: added ? 'updated' : 'unchanged' });
   }
 

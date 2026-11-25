@@ -1,14 +1,15 @@
 ---
 name: design-flow
-description: Routes design work in a UI project to the right tool for the step it's at (impeccable to brief, shape, critique, audit and polish; taste to generate; ui-ux-pro-max to look things up) and keeps DESIGN.md, PRODUCT.md and context/ui/ each owning their part. Also records where the design comes from (Figma, a token file, a brand kit, an export) and syncs DESIGN.md from it. Use when starting the look of a UI project, before building or reviewing a screen, when the look or its source changes, or when unsure which design tool to use.
+description: Routes design work in a UI project to the right tool for the step it's at (impeccable to brief, shape, critique, audit and polish; taste to generate website pages; ui-ux-pro-max to look things up) and keeps DESIGN.md, PRODUCT.md and context/ui/ each owning their part. Also records where the design comes from (Figma, a token file, a brand kit, an export) and syncs DESIGN.md from it. Use when starting the look of a UI project, before building or reviewing a screen, when the look or its source changes, or when unsure which design tool to use.
 argument-hint: "[look | sync | screen <name> | review <screen> | change-look]"
 ---
 
 Recommended: Opus · high to set the look and for the first screens; Sonnet · medium for screens
 that reuse the registry.
 
-One generator, one reviewer: **taste** shapes what gets built, **impeccable** judges it,
-**ui-ux-pro-max** is a reference to look things up in. Never ask two of them to build the same screen.
+One generator, one reviewer: **taste** shapes website pages, **impeccable** judges every screen,
+**ui-ux-pro-max** is a reference to look things up in. App screens are built from `DESIGN.md` and
+`context/ui/`, without taste. Never ask two tools to build the same screen.
 
 ## Who owns what
 
@@ -20,7 +21,7 @@ One generator, one reviewer: **taste** shapes what gets built, **impeccable** ju
 | `context/ui/tokens.md` | how the stack references each token; never a value | `start-project` |
 | `context/ui/rules.md` | patterns and Do Nots | `start-project` |
 | `context/ui/registry.md` | components as built | `capture-ui` |
-| `CLAUDE.md` → Design | the taste dials and the export command for this project | this skill |
+| `CLAUDE.md` → Design | the export command for this project | this skill |
 
 Two files disagree → `DESIGN.md` wins; fix the other. A source upstream disagrees → `sync` asks.
 
@@ -45,7 +46,7 @@ Check, in order, and run the first step that applies (an argument names the step
 
 Read [references/look.md](references/look.md) and follow it: pick a route (an existing brand file, a
 generated system, or the project's own designs), write `DESIGN.md`, lint it, preview it as a
-throwaway HTML page, iterate there, then record the taste dials.
+throwaway HTML page and iterate there.
 
 ## sync
 
@@ -57,9 +58,10 @@ nothing is overwritten wholesale, and nothing is written back to the source.
 
 1. A screen with logic or a load-bearing choice → its slice goes through `/pantoo:write-spec` first.
    Pure layout → `/impeccable shape <screen>` to agree on structure before code.
-2. Build it with `/pantoo:build-feature`, UI-first with mock data, against `DESIGN.md`, `PRODUCT.md`,
-   `context/ui/` and the dials in `CLAUDE.md`. taste applies while generating; don't name impeccable
-   here.
+2. Build it with `/pantoo:build-feature`, UI-first with mock data, against `DESIGN.md`, `PRODUCT.md`
+   and `context/ui/`. Don't name impeccable here. A website page (marketing, brand, landing, a web
+   app's public page) → read [references/taste.md](references/taste.md) first; taste applies while
+   generating. An app screen → no taste.
 3. `/pantoo:capture-ui` for each new component.
 4. **review** below, then commit.
 

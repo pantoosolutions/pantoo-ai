@@ -6,7 +6,7 @@ import { kitRoot } from './paths.js';
 import { merge } from './settings.js';
 import { spawn } from './spawn.js';
 import { OPTIONS, PLUGIN, agentFiles } from './install.js';
-import { OLD_MACHINE_RULES, detectMachine, writeMachineRule } from './machine.js';
+import { OLD_MACHINE_RULES, detectMachine, findBrowser, realSystem, writeMachineRule } from './machine.js';
 import { MANIFEST, PROJECT_FILE, detect, templatesDir } from './scaffold.js';
 import { sourceChecks } from './sources.js';
 import { PLACEHOLDER } from '../../plugin/skills/start-project/scripts/state.mjs';
@@ -18,11 +18,25 @@ const KIT_AGENTS = fs.readdirSync(path.join(kitRoot, 'plugin', 'agents')).map((f
 // Each check is { level: 'ok' | 'warn' | 'fail', what, note }.
 // `dir` adds the checks for the project there, when it has a .pantoo.json.
 // A project-only setup (init --scope project, no user config) skips the user checks.
-export function doctor(prof, dir, { user = true, machine } = {}) {
+export function doctor(prof, dir, { user = true, machine, system } = {}) {
   const projectOnly = dir && !readJson(prof.configFile, null) && readJson(path.join(dir, PROJECT_FILE), {}).init;
   const checks = user && !projectOnly ? userChecks(prof, machine) : [];
   if (dir) checks.push(...projectChecks(dir, prof));
+  const roots = [path.join(prof.claudeDir, 'skills'), ...(dir ? [path.join(dir, '.claude', 'skills')] : [])];
+  checks.push(...tasteChecks(roots, system));
   return checks;
+}
+
+// taste's page checker needs Node 22 and a Chromium browser. Only a copy that ships the checker
+// needs them, so an older, held one doesn't.
+export function tasteChecks(roots, sys = realSystem()) {
+  if (!roots.some((r) => fs.existsSync(path.join(r, TOOLS.taste.skills[0], 'scripts', 'gate.mjs')))) return [];
+  const node = Number(sys.nodeVersion.split('.')[0]) >= 22;
+  const browser = findBrowser(sys);
+  return [
+    { level: node ? 'ok' : 'warn', what: 'Node 22 for taste', note: node ? '' : `this is ${sys.nodeVersion}; taste's page checker needs Node 22 or newer` },
+    { level: browser ? 'ok' : 'warn', what: 'browser for taste', note: browser ?? 'no Chrome, Edge or Chromium found; install one, or set CHROME_PATH' },
+  ];
 }
 
 function pluginList(prof, cwd) {

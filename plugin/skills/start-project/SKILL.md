@@ -86,7 +86,7 @@ Read the mode's reference file and follow it. These rules hold in every mode:
   Summary table's header with no rows, drop the GUIDANCE lines, and add the same line to the roadmap's Decisions and notes. No placeholder is
   left, so no skill flags the file again.
 - **UI projects:** after the product phase, when `PRODUCT.md` / `DESIGN.md` don't exist, stop and
-  hand off to `/pantoo:design-flow` (brief, look, dials), then resume at the design phase.
+  hand off to `/pantoo:design-flow` (brief, look), then resume at the design phase.
   `DESIGN.md` then owns every token value and `context/ui/tokens.md` only maps it.
 
 Last, fill `AGENTS.md`: the one-line description, the real commands, and three to five hard rules

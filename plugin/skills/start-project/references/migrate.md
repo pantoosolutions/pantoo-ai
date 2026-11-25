@@ -57,7 +57,7 @@ relative links (`../DESIGN.md` → `../../DESIGN.md`). Links to Helpers files ou
 | --- | --- |
 | Project name, Commands | `AGENTS.md`: title, Commands |
 | "Context: read before any work" | Dropped: `AGENTS.md` → Where things are covers it |
-| Design: ownership table, rules, taste dials, lint and export commands | `CLAUDE.md` → the v2 Design section, plus only what's specific to this project (dial values that were set, the export command). Unset dials are dropped; `design-flow` asks for them |
+| Design: ownership table, rules, lint and export commands | `CLAUDE.md` → the v2 Design section, plus only what's specific to this project (the export command). Settings for the taste tool are dropped |
 | Workflow per screen | Dropped. The skills carry the workflow: `/architect` → `write-spec`, `/imprint` → `capture-ui`, `/review` → `review-change`, `/recover` → `diagnose-problem`, `/remember` → `save-session`, progress-tracker updates → `sync-context` |
 | Models: project specifics | `CLAUDE.md` → Models for this project |
 | Compact instructions | `CLAUDE.md`, as is |

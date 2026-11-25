@@ -22,5 +22,5 @@ Read `DESIGN.md`, `PRODUCT.md`, `context/ui/tokens.md`, `context/ui/rules.md` an
 `context/ui/registry.md` before any UI work. `DESIGN.md` owns every token value; if two files
 disagree, it wins. Never invent a colour, font, size, spacing or radius that isn't in it.
 Check the registry before building a component, and record new ones with `capture-ui`.
-Which design tool runs at which step, and this project's taste dials: `design-flow`.
+Which design tool runs at which step: `design-flow`.
 After editing `DESIGN.md`: `npx -y -p @google/design.md designmd lint DESIGN.md`.

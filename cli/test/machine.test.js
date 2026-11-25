@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { machineChecks } from '../src/doctor.js';
+import { doctor, machineChecks, tasteChecks } from '../src/doctor.js';
 import { applyKit, install, target } from '../src/install.js';
-import { MACHINE_RULE, detectMachine, renderMachine, writeMachineRule } from '../src/machine.js';
+import { MACHINE_RULE, detectMachine, findBrowser, renderMachine, writeMachineRule } from '../src/machine.js';
 import { profile } from '../src/paths.js';
 import { winQuote } from '../src/spawn.js';
 
@@ -149,4 +149,37 @@ test('a local marketplace is passed to claude as an absolute path', () => {
   } finally { process.chdir(cwd); }
   assert.ok(path.isAbsolute(run.calls[0][3]));
   assert.equal(fs.realpathSync(run.calls[0][3]), fs.realpathSync(dir));
+});
+
+test('taste needs Node 22 and a browser, but only a copy with a page checker', () => {
+  const root = tmp();
+  const scripts = path.join(root, 'design-taste-frontend', 'scripts');
+  fs.mkdirSync(scripts, { recursive: true });
+  assert.deepEqual(tasteChecks([root], mac()), []);
+  fs.writeFileSync(path.join(scripts, 'gate.mjs'), '');
+  const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  const ok = tasteChecks([tmp(), root], system({ exists: (f) => f === chrome }));
+  assert.deepEqual(ok.map((c) => [c.level, c.note]), [['ok', ''], ['ok', chrome]]);
+  const bad = tasteChecks([root], system({ nodeVersion: '20.19.0' }));
+  assert.deepEqual(bad.map((c) => c.level), ['warn', 'warn']);
+  assert.match(bad[0].note, /this is 20\.19\.0.*22 or newer/);
+  assert.match(bad[1].note, /CHROME_PATH/);
+  // doctor looks in the project's skills too.
+  const dir = tmp();
+  fs.mkdirSync(path.join(dir, '.claude'));
+  fs.renameSync(root, path.join(dir, '.claude', 'skills'));
+  const rows = doctor(profile(tmp()), dir, { user: false, system: system() });
+  assert.ok(rows.some((c) => c.what === 'browser for taste'));
+});
+
+test('findBrowser: Edge on Windows, a per-user Chrome, CHROME_PATH first, nothing elsewhere', () => {
+  const found = (files, over) => findBrowser(win({ exists: (f) => files.includes(f), ...over }));
+  const edge = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+  assert.equal(found([edge]), edge);
+  const local = 'C:\\Users\\j\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe';
+  assert.equal(found([edge, local]), local);
+  assert.equal(found([edge, 'D:\\b.exe'], { env: { CHROME_PATH: 'D:\\b.exe' } }), 'D:\\b.exe');
+  assert.equal(found([]), null);
+  assert.equal(findBrowser(system({ platform: 'linux', exists: (f) => f === '/usr/bin/chromium' })), '/usr/bin/chromium');
+  assert.equal(findBrowser(system({ platform: 'freebsd', exists: () => true })), null);
 });

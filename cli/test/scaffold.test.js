@@ -24,6 +24,7 @@ test('new project: spine, UI files, settings, gitignore', () => {
   assert.doesNotMatch(read(dir, 'CLAUDE.md'), /UI projects only/);
   assert.equal(JSON.parse(read(dir, '.claude/settings.json')).enabledPlugins['pantoo@pantoo-ai'], true);
   assert.match(read(dir, '.gitignore'), /^context\/session\.md$/m);
+  assert.match(read(dir, '.gitignore'), /^\.taste-skill\/$/m);
   assert.equal(JSON.parse(read(dir, '.pantoo.json')).layout, 2);
 });
 
@@ -34,6 +35,7 @@ test('backend project drops UI files and the Design section', () => {
   assert.ok(fs.existsSync(path.join(dir, 'context/known-issues.md')));
   assert.ok(fs.existsSync(path.join(dir, 'context/contracts.md')));
   assert.doesNotMatch(read(dir, 'CLAUDE.md'), /## Design/);
+  assert.doesNotMatch(read(dir, '.gitignore'), /taste/);
   assert.match(read(dir, 'AGENTS.md'), /known-issues\.md/);
 });
 
@@ -58,6 +60,9 @@ test('local mode hides everything in .git/info/exclude', () => {
   assert.ok(!fs.existsSync(path.join(dir, 'CLAUDE.md')));
   assert.ok(!fs.existsSync(path.join(dir, '.gitignore')));
   assert.ok(!fs.existsSync(path.join(dir, '.claude/settings.json')));
+  // Hidden at any depth, since taste may build in a folder below the root.
+  fs.mkdirSync(path.join(dir, 'site/.taste-skill'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'site/.taste-skill/build.json'), '{}');
   const status = spawnSync('git', ['-C', dir, 'status', '--porcelain'], { encoding: 'utf8' }).stdout;
   assert.equal(status, '');
 });

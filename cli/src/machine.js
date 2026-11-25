@@ -91,6 +91,24 @@ export function detectMachine(sys = realSystem()) {
   return info;
 }
 
+// Chrome, Edge or Chromium where taste's checker looks for them (its `findChrome`), else null.
+export function findBrowser(sys = realSystem()) {
+  const { env } = sys;
+  if (env.CHROME_PATH && sys.exists(env.CHROME_PATH)) return env.CHROME_PATH;
+  const home = env.HOME || env.USERPROFILE || '';
+  const programs = [env.PROGRAMFILES || 'C:\\Program Files', env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)'];
+  const mac = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  const list = {
+    win32: [
+      ...[...programs, env.LOCALAPPDATA].filter(Boolean).map((d) => path.win32.join(d, 'Google/Chrome/Application/chrome.exe')),
+      ...programs.map((d) => path.win32.join(d, 'Microsoft/Edge/Application/msedge.exe')),
+    ],
+    darwin: [mac, '/Applications/Chromium.app/Contents/MacOS/Chromium', path.posix.join(home, mac)],
+    linux: ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/snap/bin/chromium'],
+  }[sys.platform] ?? [];
+  return list.find((f) => sys.exists(f)) ?? null;
+}
+
 // Facts first, then only the consequences that change how commands should be written.
 // How to load each Node manager's environment in a fresh shell, per shell. Volta and nvm-windows put
 // node on PATH themselves, so they need nothing.
