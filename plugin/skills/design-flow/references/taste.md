@@ -11,8 +11,15 @@ taste picks a palette and a font pairing of its own. Here it decides layout, sec
 `DESIGN.md` decides every value. Tell it so before it plans the page:
 
 - Colours: `DESIGN.md`'s go in through `start.mjs brand`, in place of a dealt palette.
-- Type and radius: `brand` takes only taste's own pairings, so replace the printed `--font-*` and
-  radius values in `:root` with `DESIGN.md`'s.
+- Everything else: `brand` takes only taste's own pairings and covers only part of `DESIGN.md`, so
+  override the kit's variables and rules with **every** value it sets: fonts, weights, body size,
+  line height, radius, border colour, spacing. A heading rule covers every heading level, the kit's
+  small card titles included.
+- Before reporting the page, compare its computed styles in a browser with `DESIGN.md`, on every
+  kind of element, and fix what differs. taste's gate doesn't check this.
+- A value `DESIGN.md` doesn't set (often heading sizes or large spacing): on website pages this is
+  the exception to "never invent". Use taste's, list those values in the report, and ask whether to
+  add them to `DESIGN.md`. A yes → add them and lint; a no → ask which values the page uses.
 - A finding that only asks to depart from `DESIGN.md` → waive it in `.taste-skill/waivers.json`,
   with `DESIGN.md` as the reason. It takes five waivers at most. More than that, or a value taste
   refuses outright (violet) → ask the developer whether the page or `DESIGN.md` changes.
