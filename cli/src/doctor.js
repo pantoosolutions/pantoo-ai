@@ -180,6 +180,37 @@ function userChecks(prof, machine) {
   return checks;
 }
 
+// Tracked files that are CRLF on disk, split by what git holds for them. Files whose attributes
+// ask for CRLF (batch files) are right as they are. Null when git can't list them.
+export function crlfFiles(dir) {
+  const r = spawnSync('git', ['-C', dir, 'ls-files', '--eol', '-z'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if (r.status !== 0) return null;
+  const found = { checkout: [], index: [] };
+  for (const entry of r.stdout.split('\0')) {
+    const [info, file] = entry.split('\t');
+    if (!/\sw\/crlf\s/.test(info) || info.includes('eol=crlf')) continue;
+    found[info.startsWith('i/lf ') ? 'checkout' : 'index'].push(file);
+  }
+  return found;
+}
+
+const some = (files) => `${files.length} file(s), e.g. ${files[0]}`;
+
+export function lineEndingChecks(dir, { local = false } = {}) {
+  const checks = [];
+  const add = (level, what, note = '') => checks.push({ level, what, note });
+  // In a monorepo the project can sit below the file that covers it.
+  const top = spawnSync('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { encoding: 'utf8' }).stdout?.trim();
+  const has = [dir, top].some((d) => d && fs.existsSync(path.join(d, '.gitattributes')));
+  // A local-only setup is in someone else's repo, which isn't asked to commit a file.
+  if (!has && !local) add('warn', '.gitattributes', 'none; add one with `* text=auto eol=lf` and commit it');
+  const crlf = crlfFiles(dir);
+  if (crlf?.checkout.length) add('warn', 'line endings', `CRLF on disk, LF in git: ${some(crlf.checkout)}; \`npx pantoo-ai move import\` repairs them`);
+  if (crlf?.index.length) add('warn', 'line endings in git', `committed with CRLF: ${some(crlf.index)}; run \`git add --renormalize .\` and commit`);
+  if (has && crlf && !crlf.checkout.length && !crlf.index.length) add('ok', 'line endings');
+  return checks;
+}
+
 // `Rules: vN` near the top of security.md; a file without the line predates it, so it's v1.
 export const rulesVersion = (text) => Number(text.match(/^Rules: v(\d+)/m)?.[1] ?? 1);
 const SECURITY = 'context/security.md';
@@ -240,6 +271,7 @@ export function projectChecks(dir, prof) {
     const on = settings.enabledPlugins?.[PLUGIN] === true;
     add(on ? 'ok' : 'warn', '.claude/settings.json', on ? 'plugin enabled for the team' : `${PLUGIN} not enabled; teammates won't be pointed at it`);
   }
+  if (found.isRepo) checks.push(...lineEndingChecks(dir, project));
   if (found.isRepo && !project.local) {
     const ignored = spawnSync('git', ['-C', dir, 'check-ignore', '-q', 'context/session.md']).status === 0;
     add(ignored ? 'ok' : 'warn', 'context/session.md', ignored ? 'gitignored' : 'not gitignored; personal session notes would be committed');

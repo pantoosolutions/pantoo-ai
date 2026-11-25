@@ -89,7 +89,7 @@ A project commits its context and the plugin's marketplace entry:
 
 | In the repo | Per person, per machine |
 | --- | --- |
-| `AGENTS.md`, `CLAUDE.md`, `context/`, `.pantoo.json` | The plugin (`npx pantoo-ai init`) |
+| `AGENTS.md`, `CLAUDE.md`, `context/`, `.pantoo.json`, `.gitattributes` | The plugin (`npx pantoo-ai init`) |
 | `.claude/settings.json` (marketplace + enabled plugin) | Rules and settings in `~/.claude/` |
 | `.claude/skills/<companion>/` (design companions) | `context/session.md` (gitignored) |
 

@@ -103,6 +103,15 @@ export function excludeLocal(dir, lines) {
 // --local: keeps the companion folders and the lock file out of git too.
 export const hideCompanions = (dir, names) => excludeLocal(dir, [...names.map((n) => `/.claude/skills/${n}/`), '/skills-lock.json']);
 
+// LF on every OS, whatever a machine's core.autocrlf says. A project's own file is never touched.
+// Not for --local: the file only works for a team once it's committed.
+function writeAttributes(dir, existing) {
+  const what = '.gitattributes';
+  if (exists(dir, what)) return { what, status: 'kept', note: 'already there' };
+  writeFile(path.join(dir, what), fs.readFileSync(path.join(templatesDir, 'gitattributes'), 'utf8'));
+  return { what, status: 'added', note: existing ? 'if git already holds CRLF files, run `git add --renormalize .`' : '' };
+}
+
 // Writes context v2 into `dir`. Returns [{ what, status, note }].
 export function scaffold(dir, choices) {
   const results = [];
@@ -134,6 +143,7 @@ export function scaffold(dir, choices) {
     const ignored = ['context/session.md', ...(choices.ui ? ['.taste-skill/'] : [])];
     const added = appendLines(path.join(dir, '.gitignore'), '# pantoo-ai: per-person state', ignored);
     results.push({ what: '.gitignore', status: added ? 'updated' : 'unchanged' });
+    results.push(writeAttributes(dir, choices.existing));
   }
 
   if (choices.share && !choices.local) {
