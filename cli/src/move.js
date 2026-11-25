@@ -17,8 +17,9 @@ export const CLASSES = {
   skip: ['.impeccable-live/', '.taste-skill/'],
 };
 // Inside a carried folder but not project data: impeccable's installed script, its live sessions,
-// and its per-developer overrides (which hold that machine's hook consent).
-const NOT_CARRIED = [/^\.impeccable\/bin\//, /^\.impeccable\/live\//, /^\.impeccable\/config\.local\.json$/];
+// and its per-developer overrides (which hold that machine's hook consent). Any letter case: macOS
+// and Windows file systems would write `.impeccable/Bin/x` into `.impeccable/bin/`.
+const NOT_CARRIED = [/^\.impeccable\/bin\//i, /^\.impeccable\/live\//i, /^\.impeccable\/config\.local\.json$/i];
 // Files the OS drops in folders (Finder, Explorer, macOS on FAT drives): never project data.
 const OS_JUNK = /(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini|\._[^/]*)$/i;
 // Names that usually hold a key. impeccable keeps its sign-in in ~/.impeccable; credentials.json
@@ -324,7 +325,7 @@ export function exportMove({ prof, dir, to, env = process.env, now = new Date() 
   }
   writeJson(path.join(target, 'move.json'), manifest);
 
-  lines.push(`✓ ${files.length} file(s): ${files.map((f) => f.rel).join(', ') || 'none'}`);
+  lines.push(`✓ ${files.length} file(s): ${files.map((f) => plain(f.rel, 300)).join(', ') || 'none'}`);
   lines.push(notes.length ? `✓ ${notes.length} memory note(s) from ${mem.dir}` : '✓ no project memory on this machine');
   if (mem.note) lines.push(`! ${mem.note}`);
   lines.push(`✓ ${count(perms.keep)} permission rule(s)${perms.left.length + perms.secret ? ` (${perms.left.length + perms.secret} left out: ${perms.left.length} name this machine's paths, ${perms.secret} may hold a secret)` : ''}`);
@@ -345,7 +346,9 @@ const MEMORY_NAME = /^[\w.-]+\.md$/;
 export function safeRel(rel) {
   if (!isString(rel) || !rel || HIDDEN.test(rel) || rel.includes('\\') || rel.startsWith('/') || /^[A-Za-z]:/.test(rel)) return false;
   const parts = rel.split('/');
-  if (parts.some((p) => p === '' || p === '.' || p === '..' || p.toLowerCase() === '.git')) return false;
+  // `:` opens an NTFS stream; `~1` may be a Windows short name for another folder; a trailing dot
+  // or space is dropped by Windows, so `bin.` would be `bin`.
+  if (parts.some((p) => p === '' || p === '.' || p === '..' || p.toLowerCase() === '.git' || p.includes(':') || /~\d+(\.[^.]{0,3})?$/.test(p) || /[. ]$/.test(p))) return false;
   return isCarried(rel);
 }
 
@@ -372,8 +375,12 @@ export function readMoveFolder(folder) {
   if (m.project !== null && (typeof m.project !== 'object' || typeof m.project.local !== 'boolean')) bad('project must be null or hold local');
   for (const k of ['files', 'memory', 'secrets', 'mcpLocal']) if (!Array.isArray(m[k])) bad(`${k} must be a list`);
   const entries = [];
+  let total = 0;
   const check = (sub, sha) => {
     const { file, size } = verified(dir, real, sub);
+    // Sizes come from the file system, so an oversized file is refused before it is read.
+    total += size;
+    if (size > CAPS.size || total > CAPS.total) checkCaps([...entries, { size, label: sub }]);
     const buf = fs.readFileSync(file);
     if (sha256(buf) !== sha) stop(`${sub} doesn't match its hash: the folder is incomplete; wait for Drive to finish syncing, then run import again.`);
     entries.push({ size, label: sub });
@@ -457,7 +464,7 @@ export async function importMove({ prof, dir, folder, allow, take = [], ask = nu
   if (!state) stop(`${dir} is not a git repo; clone the project first, then import in the clone.`);
   const { root } = state;
   if (state.remote !== m.git.remote) stop(`This clone's remote (${state.remote ?? 'none'}) isn't the exported one (${plain(m.git.remote, 200)}).`);
-  if (state.branch !== m.git.branch) stop(`This clone is on ${state.branch ?? 'a detached HEAD'}; run \`git switch ${m.git.branch}\`, then import again.`);
+  if (state.branch !== m.git.branch) stop(`This clone is on ${state.branch ? plain(state.branch) : 'a detached HEAD'}; run \`git switch ${m.git.branch}\`, then import again.`);
   const known = g(root, ['cat-file', '-e', `${m.git.head}^{commit}`]).ok;
   if (!known || !g(root, ['merge-base', '--is-ancestor', m.git.head, 'HEAD']).ok) {
     stop(`This clone doesn't have the exported commit ${m.git.head.slice(0, 12)}; run \`git fetch\`, then \`git switch ${m.git.branch}\` (and pull), then import again.`);

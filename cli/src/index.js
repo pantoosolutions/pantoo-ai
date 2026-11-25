@@ -6,6 +6,7 @@ import { exportMove, importMove } from './move.js';
 import { GUARDS, OPTIONS, install } from './install.js';
 import { add, addNames, remove, update } from './manage.js';
 import { profile } from './paths.js';
+import { plain } from './secrets.js';
 import { VERSION, selfUpdate } from './self-update.js';
 import { SOURCES, addSource } from './sources.js';
 import { KINDS, PROJECT_FILE, detect, hideCompanions, scaffold } from './scaffold.js';
@@ -91,16 +92,20 @@ move import <folder>      run in the new clone: checks remote, branch and HEAD, 
 
 const ICON = { ok: '✓', warn: '!', fail: '✗' };
 
+// Every row may hold a name from the repo (a file, an MCP server, a README cell): `safe` strips the
+// control characters that would let it rewrite the terminal.
+const safe = (text) => plain(text, 2000);
+
 function printChecks(checks) {
-  for (const c of checks) console.log(`${ICON[c.level]} ${c.what}${c.note ? `  (${c.note})` : ''}`);
+  for (const c of checks) console.log(`${ICON[c.level]} ${safe(c.what)}${c.note ? `  (${safe(c.note)})` : ''}`);
   const fails = checks.filter((c) => c.level === 'fail').length;
   const warns = checks.filter((c) => c.level === 'warn').length;
   console.log(fails ? `\n${fails} problem(s), ${warns} warning(s).` : `\nAll good${warns ? `, ${warns} warning(s)` : ''}.`);
   return fails ? 1 : 0;
 }
 
-const show = (results) => { for (const r of results) console.log(`${r.status === 'FAILED' ? '✗' : '✓'} ${r.what}: ${r.status}${r.note ? `  (${r.note})` : ''}`); };
-const printUpstream = (rows) => { for (const r of rows) console.log(`${ICON[r.level]} ${r.what}  (${r.note})`); };
+const show = (results) => { for (const r of results) console.log(`${r.status === 'FAILED' ? '✗' : '✓'} ${safe(r.what)}: ${safe(r.status)}${r.note ? `  (${safe(r.note)})` : ''}`); };
+const printUpstream = (rows) => { for (const r of rows) console.log(`${ICON[r.level]} ${safe(r.what)}  (${safe(r.note)})`); };
 const interactive = (values) => !values.yes && process.stdin.isTTY;
 
 async function runInit(values, run) {

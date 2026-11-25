@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { appendLines, excludeLocal, readJson, writeFile, writeJson } from './files.js';
+import { appendLines, excludeLocal, readIfExists, readJson, writeFile, writeJson } from './files.js';
 import { kitRoot } from './paths.js';
 import { mergeSettings } from './settings.js';
 import { git as runGit } from './spawn.js';
@@ -10,6 +10,16 @@ export const MANIFEST = readJson(path.join(templatesDir, 'manifest.json'), null)
 export const PROJECT_FILE = '.pantoo.json';
 // Security rule 2: env files stay out of git from the first commit, except the example.
 export const ENV_IGNORE = ['.env*', '!.env.example'];
+// One block: the negation only works after `.env*`, so a file that already has `!.env.example`
+// above a missing `.env*` gets both lines again, in order. False when nothing was added.
+export function ignoreEnv(file, header) {
+  const text = readIfExists(file) ?? '';
+  const lines = text.split(/\r?\n/).map((l) => l.trim());
+  const star = lines.lastIndexOf('.env*');
+  if (star !== -1 && lines.lastIndexOf('!.env.example') > star) return false;
+  writeFile(file, `${text}${text && !text.endsWith('\n') ? '\n' : ''}${text ? '\n' : ''}${header}\n${ENV_IGNORE.join('\n')}\n`);
+  return true;
+}
 
 // Project kinds and the ui-ux-pro-max companions each one gets (PLAN.md 4b).
 export const KINDS = {
@@ -141,13 +151,13 @@ export function scaffold(dir, choices) {
   if (choices.local) {
     if (!found.isRepo) throw new Error('--local needs a git repo (it hides the files in .git/info/exclude).');
     const added = excludeKitPaths(dir);
-    const secrets = excludeLocal(dir, ENV_IGNORE);
+    const secrets = ignoreEnv(path.resolve(dir, git(dir, ['rev-parse', '--git-path', 'info/exclude'])), '# pantoo-ai: env files (security rule 2)');
     results.push({ what: '.git/info/exclude', status: added || secrets ? 'updated' : 'unchanged' });
   } else {
     // No leading slash on `.taste-skill/`: taste may build in a folder below the root.
     const ignored = ['context/session.md', ...(choices.ui ? ['.taste-skill/'] : [])];
     const added = appendLines(path.join(dir, '.gitignore'), '# pantoo-ai: per-person state', ignored);
-    const secrets = appendLines(path.join(dir, '.gitignore'), '# pantoo-ai: env files (security rule 2)', ENV_IGNORE);
+    const secrets = ignoreEnv(path.join(dir, '.gitignore'), '# pantoo-ai: env files (security rule 2)');
     results.push({ what: '.gitignore', status: added || secrets ? 'updated' : 'unchanged' });
     results.push(writeAttributes(dir, choices.existing));
   }

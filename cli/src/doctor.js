@@ -11,6 +11,7 @@ import { setupChecks } from './setup-checks.js';
 import { secretChecks, plain } from './secrets.js';
 import { sourceChecks } from './sources.js';
 import { git } from './spawn.js';
+import { MIN_NODE, nodeAtLeast } from './node-version.js';
 import { PLACEHOLDER } from '../../plugin/skills/start-project/scripts/state.mjs';
 import { COMPANIONS, TOOLS, designMissing, readHolds, skillState, stateRow, toolState } from './third-party.js';
 
@@ -34,15 +35,6 @@ export function doctor(prof, dir, { user = true, machine, system = realSystem() 
 // The installed skills whose scripts are Python.
 export function pythonUsers(roots) {
   return ['ui-ux-pro-max', ...COMPANIONS].filter((s) => roots.some((r) => fs.existsSync(path.join(r, s))));
-}
-
-// Same as package.json `engines`.
-export const MIN_NODE = '22.20.0';
-export function nodeAtLeast(version, min) {
-  const a = version.split('.').map(Number);
-  const b = min.split('.').map(Number);
-  for (let i = 0; i < 3; i++) if ((a[i] || 0) !== b[i]) return (a[i] || 0) > b[i];
-  return true;
 }
 
 // taste's page checker needs Node 22 and a Chromium browser. Only a copy that ships the checker

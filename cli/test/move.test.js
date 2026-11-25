@@ -448,6 +448,17 @@ test('line-ending repair loses no file when git checkout fails', () => {
   assert.equal(read(path.join(dir, 'a.txt')), before);
 });
 
+// macOS and Windows file systems ignore case, so `Bin/` lands in `bin/`.
+test('import refuses impeccable\'s script, live sessions and consent file in any letter case', () => {
+  for (const rel of ['.impeccable/Bin/run.js', '.impeccable/BIN/x', '.impeccable/Live/s.json', '.impeccable/Config.Local.json', '.impeccable/config.local.JSON']) {
+    assert.equal(safeRel(rel), false, rel);
+  }
+  for (const rel of ['context/a.md:evil', 'context/PROGRE~1.MD', 'context/specs~2/x.md', '.impeccable/bin./x', '.impeccable/bin /x']) {
+    assert.equal(safeRel(rel), false, rel);
+  }
+  for (const rel of ['context/notes.md', 'context/v~a.md', '.impeccable/design.json']) assert.equal(safeRel(rel), true, rel);
+});
+
 test('a permission rule or path with hidden characters never reaches the consent prompt', () => {
   const esc = `Bash(rm -rf /)${String.fromCharCode(27)}[2K`;
   const bidi = `Bash(ls ${String.fromCharCode(0x202e)}x)`;

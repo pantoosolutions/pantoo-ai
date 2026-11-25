@@ -103,8 +103,18 @@ test('env files stay out of git, the example stays in, and a rerun adds nothing'
   assert.ok(!ignored('.env.example'));
 });
 
+test('an existing `!.env.example` above a missing `.env*` stays in force', () => {
+  const dir = tmp();
+  spawnSync('git', ['init', '-q', dir]);
+  fs.writeFileSync(path.join(dir, '.gitignore'), '.env\n.env.*\n!.env.example\n');
+  scaffold(dir, base);
+  fs.writeFileSync(path.join(dir, '.env.example'), 'K=\n');
+  assert.notEqual(spawnSync('git', ['-C', dir, 'check-ignore', '-q', '.env.example']).status, 0);
+  assert.match(read(dir, '.gitignore'), /\.env\*\n!\.env\.example\n$/);
+});
+
 test('doctor: Node minimum compares the full version', async () => {
-  const { nodeAtLeast, MIN_NODE } = await import('../src/doctor.js');
+  const { nodeAtLeast, MIN_NODE } = await import('../src/node-version.js');
   const pkg = JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
   assert.equal(pkg.engines.node, `>=${MIN_NODE}`);
   assert.ok(nodeAtLeast('22.20.0', '22.20.0'));
