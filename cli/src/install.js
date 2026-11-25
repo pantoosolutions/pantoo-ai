@@ -5,7 +5,7 @@ import { detectMachine } from './machine.js';
 import { kitRoot } from './paths.js';
 import { PROJECT_FILE } from './scaffold.js';
 import { mergeSettings } from './settings.js';
-import { THIRD_PARTY, TOOLS, defaultRun, hasSkills, installTool, pinOf, skillState, skillsRoot } from './third-party.js';
+import { THIRD_PARTY, TOOLS, defaultRun, hasSkills, heldRow, installTool, pinOf, readHolds, skillState, skillsRoot } from './third-party.js';
 
 export const GUARDS = ['block', 'warn', 'off'];
 
@@ -121,13 +121,20 @@ function current(t, saved, id) {
   return hasSkills(t.scope, t, id) && skillState(id, { root: skillsRoot(t.scope, t) }).state !== 'older';
 }
 
+// Installs a design tool, unless this machine holds it.
+export function installUnlessHeld(id, { scope, dir, prof, run }) {
+  const holds = readHolds(prof);
+  return Object.hasOwn(holds, id) ? [heldRow(`design tool ${id}`, id, holds[id])] : installTool(id, { scope, dir, prof, run });
+}
+
 // Installs, or re-pins, the design pack tools whose recorded pin differs or whose files are missing or older.
 export function syncTools(t, saved, run, { all = false } = {}) {
   const wanted = saved.packs?.includes('design') ? THIRD_PARTY.packs.design : Object.keys(saved.thirdParty ?? {});
+  const holds = readHolds(t.prof);
   const results = [];
   for (const id of wanted) {
-    if (!all && current(t, saved, id)) continue;
-    results.push(...installTool(id, { scope: t.scope, dir: t.dir, prof: t.prof, run }));
+    if (!all && !Object.hasOwn(holds, id) && current(t, saved, id)) continue;
+    results.push(...installUnlessHeld(id, { scope: t.scope, dir: t.dir, prof: t.prof, run }));
   }
   return results;
 }
@@ -150,6 +157,6 @@ export function install({ prof, scope = 'user', dir, options, marketplace, force
   Object.assign(saved, { scope, options, marketplace: mp, packs, guard });
   saveSaved(t, saved);
 
-  if (packs.includes('design')) for (const id of THIRD_PARTY.packs.design) results.push(...installTool(id, { scope, dir, prof, run }));
+  if (packs.includes('design')) for (const id of THIRD_PARTY.packs.design) results.push(...installUnlessHeld(id, { scope, dir, prof, run }));
   return results;
 }

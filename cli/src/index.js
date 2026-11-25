@@ -8,7 +8,8 @@ import { profile } from './paths.js';
 import { VERSION, selfUpdate } from './self-update.js';
 import { SOURCES, addSource } from './sources.js';
 import { KINDS, PROJECT_FILE, detect, hideCompanions, scaffold } from './scaffold.js';
-import { COMPANIONS, THIRD_PARTY, defaultRun, designMissing, installCompanions } from './third-party.js';
+import { COMPANIONS, THIRD_PARTY, defaultRun, designMissing, installCompanions, setHolds } from './third-party.js';
+import { checkUpstream } from './upstream.js';
 
 const HELP = `pantoo-ai <command>   (--version prints the version)
 
@@ -54,6 +55,9 @@ add source <tool>         record a design source; tools with an official MCP ser
 update flags
   --dir <dir>             the project folder, default the current one (project choices replayed too)
   --no-self-update        don't re-run through a newer pantoo-ai from npm
+  --check                 only compare each design tool's pin with upstream; installs and writes nothing
+  --hold <tool>           keep the installed version on this machine: impeccable, taste, ui-ux-pro-max
+  --release <tool>        end a hold, so update moves the tool to the kit's pin
   --force, --home <dir>   as in init
 
 remove flags
@@ -79,6 +83,7 @@ function printChecks(checks) {
 }
 
 const show = (results) => { for (const r of results) console.log(`${r.status === 'FAILED' ? '✗' : '✓'} ${r.what}: ${r.status}${r.note ? `  (${r.note})` : ''}`); };
+const printUpstream = (rows) => { for (const r of rows) console.log(`${ICON[r.level]} ${r.what}  (${r.note})`); };
 const interactive = (values) => !values.yes && process.stdin.isTTY;
 
 async function runInit(values, run) {
@@ -173,7 +178,7 @@ async function runRemove(values, run) {
   show(remove({ prof: profile(values.home), scope, dir: path.resolve(values.dir ?? '.'), thirdParty: values['third-party'], run }));
 }
 
-export async function main(argv, { run = defaultRun } = {}) {
+export async function main(argv, { run = defaultRun, fetch: get = globalThis.fetch } = {}) {
   if (['--version', '-v'].includes(argv[0])) return console.log(VERSION);
   const [command, ...rest] = argv;
   const { values, positionals } = parseArgs({
@@ -200,6 +205,9 @@ export async function main(argv, { run = defaultRun } = {}) {
       'third-party': { type: 'boolean' },
       companion: { type: 'boolean' },
       source: { type: 'string' },
+      check: { type: 'boolean' },
+      hold: { type: 'string', multiple: true },
+      release: { type: 'string', multiple: true },
       ...Object.fromEntries(Object.keys(OPTIONS).map((id) => [`no-${id}`, { type: 'boolean' }])),
     },
   });
@@ -208,8 +216,16 @@ export async function main(argv, { run = defaultRun } = {}) {
   if (command === 'new') return runNew(values, run);
   if (command === 'remove') return runRemove(values, run);
   if (command === 'update') {
+    const hold = values.hold ?? [];
+    const release = values.release ?? [];
+    if (values.check) {
+      if (hold.length || release.length) throw new Error('--check changes nothing; run it without --hold or --release.');
+      return printUpstream(await checkUpstream({ prof: profile(values.home), run, fetch: get }));
+    }
     const code = await selfUpdate({ args: rest });
     if (code !== null) return void (process.exitCode = code);
+    // Saved before updating, so this same run leaves a newly held tool alone.
+    show(setHolds({ hold, release }, { dir, prof: profile(values.home) }));
     show(update({ prof: profile(values.home), dir, force: values.force, run }));
   } else if (command === 'add') {
     if (!positionals[0]) throw new Error(`add needs a name. Valid: ${addNames().join(', ')}, source <tool>.`);

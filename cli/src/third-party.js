@@ -45,7 +45,7 @@ const compareVersions = (a, b) => a.localeCompare(b, 'en', { numeric: true });
 const npmVersion = (spec) => spec.slice(spec.lastIndexOf('@') + 1);
 
 // A readable name for a pin: the kit's tag, an earlier kit's tag, or a short sha.
-function pinLabel(id, pin) {
+export function pinLabel(id, pin) {
   const tool = TOOLS[id];
   if (tool.via === 'npm') return npmVersion(pin);
   return [tool, ...(tool.previous ?? [])].find((p) => p.sha === pin)?.tag ?? pin.slice(0, 7);
@@ -75,6 +75,52 @@ function readSkill(id, name, dir) {
   };
 }
 
+// The tools this machine keeps where they are (D30), as { id: pin of what was installed }.
+export const readHolds = (prof) => readJson(prof.configFile, null)?.holds ?? {};
+export const heldRow = (what, id, pin) => ({ what, status: 'held', note: `at ${pinLabel(id, pin)}; \`npx pantoo-ai update --release ${id}\` moves it` });
+
+// The pin of what a skill folder holds, or null when it's no version the kit can name.
+function installedPin(id, root) {
+  const tool = TOOLS[id];
+  const name = tool.skills[0];
+  const dir = path.join(root, name);
+  if (tool.via === 'npm') {
+    const version = skillVersion(dir);
+    return version && `${tool.npm.slice(0, tool.npm.lastIndexOf('@'))}@${version}`;
+  }
+  const actual = folderHash(dir);
+  return [tool, ...(tool.previous ?? [])].find((p) => p.hashes?.[name] === actual)?.sha ?? null;
+}
+
+// Adds and releases holds in the user config; all of them are checked before anything is written.
+// The user's copy of a skill is read first, since it wins over a project's.
+export function setHolds({ hold = [], release = [] }, { dir, prof }) {
+  if (!hold.length && !release.length) return [];
+  const unknown = [...hold, ...release].find((id) => !Object.hasOwn(TOOLS, id));
+  if (unknown) throw new Error(`Unknown tool "${unknown}". Valid: ${Object.keys(TOOLS).join(', ')}.`);
+  if (hold.some((id) => release.includes(id))) throw new Error('A tool can\'t be held and released at once.');
+  const config = readJson(prof.configFile, null);
+  if (!config) throw new Error(`Holds are saved in ${prof.configFile}, which doesn't exist; run \`npx pantoo-ai init\` first.`);
+  const holds = { ...config.holds };
+  const results = [];
+  for (const id of hold) {
+    const root = [skillsRoot('user', { prof }), skillsRoot('project', { dir })].find((r) => fs.existsSync(path.join(r, TOOLS[id].skills[0])));
+    if (!root) throw new Error(`Can't hold ${id}: it isn't installed.`);
+    const pin = installedPin(id, root);
+    if (!pin) throw new Error(`Can't hold ${id}: the skill in ${root} is no version this kit knows (newer, or changed by hand).`);
+    holds[id] = pin;
+    results.push({ what: `hold ${id}`, status: 'saved', note: `at ${pinLabel(id, pin)}` });
+  }
+  for (const id of release) {
+    results.push({ what: `hold ${id}`, status: Object.hasOwn(holds, id) ? 'released' : 'not held' });
+    delete holds[id];
+  }
+  if (Object.keys(holds).length) config.holds = holds;
+  else delete config.holds;
+  writeJson(prof.configFile, config);
+  return results;
+}
+
 // Compares an installed skill with the kit's pin, from the files on disk:
 // 'ok', 'older', 'newer' (anything the kit never pinned) or 'held' (D30).
 // A hold on a tool must match what's installed. A companion at the kit's pin is ok even on a machine
@@ -86,7 +132,7 @@ export function skillState(id, { name = TOOLS[id].skills[0], root, hold }) {
   const companion = !TOOLS[id].skills.includes(name);
   if (companion && skill.is(pin)) return { state: 'ok', kit };
   if (hold && skill.is(hold)) return { state: 'held', kit, held: pinLabel(id, hold) };
-  if (hold && !companion) return { state: 'changed', kit, held: pinLabel(id, hold), found: skill.is(pin) ? kit : skill.found };
+  if (hold) return { state: 'changed', kit, held: pinLabel(id, hold), found: skill.is(pin) ? kit : skill.found };
   if (skill.is(pin)) return { state: 'ok', kit };
   return { state: skill.older ? 'older' : 'newer', kit, found: skill.found };
 }

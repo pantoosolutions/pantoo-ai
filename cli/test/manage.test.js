@@ -12,7 +12,7 @@ import { install, OPTIONS } from '../src/install.js';
 import { main } from '../src/index.js';
 import { add, remove, update } from '../src/manage.js';
 import { profile } from '../src/paths.js';
-import { THIRD_PARTY, folderHash, installCompanions, installTool, installedRefs, removeTool, skillState } from '../src/third-party.js';
+import { THIRD_PARTY, folderHash, installCompanions, installTool, installedRefs, removeTool, setHolds, skillState } from '../src/third-party.js';
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'pantoo-mg-'));
 const repo = () => { const d = tmp(); spawnSync('git', ['init', '-q', d]); return d; };
@@ -443,4 +443,77 @@ test('remove deletes the kit\'s machine.md but not a foreign one', () => {
   fs.writeFileSync(file, 'mine\n');
   remove({ prof, scope: 'user', dir: repo(), run });
   assert.equal(fs.readFileSync(file, 'utf8'), 'mine\n');
+});
+
+test('a hold is saved from what is installed, survives update, and release lets it move', async (t) => {
+  const name = taste.skills[0];
+  const was = taste.previous[0];
+  pinned(t, was, name, { 'SKILL.md': 'earlier\n' });
+  const home = tmp();
+  const dir = repo();
+  const prof = profile(home);
+  install({ prof, scope: 'user', dir, options: [], packs: ['design'], run: fake() });
+  const root = path.join(prof.claudeDir, 'skills');
+  skill(root, 'impeccable', front(impeccable.npm.split('@')[1]));
+  skill(root, name, { 'SKILL.md': 'earlier\n' });
+  skill(root, uiux.skills[0], { 'SKILL.md': 'x' });
+  const run = fake();
+  const go = (...flags) => quiet(() => main(['update', '--no-self-update', '--home', home, '--dir', dir, ...flags], { run }));
+  const tasteInstalls = () => run.calls.filter((c) => c.cmd === 'npx' && c.args.join(' ').includes(taste.repo)).length;
+
+  await go('--hold', 'taste');
+  await go();
+  assert.deepEqual(json(prof.configFile).holds, { taste: was.sha });
+  assert.equal(tasteInstalls(), 0);
+  assert.ok(update({ prof, dir, run }).some((r) => r.what === 'design tool taste' && r.status === 'held' && r.note.includes(was.tag)));
+  // `init` and `add design` leave it alone too.
+  install({ prof, scope: 'user', dir, options: [], packs: ['design'], run });
+  add({ name: 'design', prof, dir, run });
+  assert.equal(tasteInstalls(), 0);
+  assert.deepEqual(json(prof.configFile).holds, { taste: was.sha });
+
+  fs.rmSync(path.join(root, name), { recursive: true });
+  assert.match(toolChecks(root, { taste: {} }, { taste: was.sha })[0].note, /update --release taste/);
+  await go('--release', 'taste');
+  assert.equal(json(prof.configFile).holds, undefined);
+  assert.equal(tasteInstalls(), 1);
+});
+
+test('holding impeccable records the version in SKILL.md, not the saved pin', () => {
+  const prof = profile(tmp());
+  const dir = tmp();
+  install({ prof, scope: 'user', dir, options: [], packs: [], run: fake() });
+  skill(path.join(prof.claudeDir, 'skills'), 'impeccable', front('4.8.0'));
+  setHolds({ hold: ['impeccable'] }, { dir, prof });
+  assert.deepEqual(json(prof.configFile).holds, { impeccable: 'impeccable@4.8.0' });
+});
+
+test('a hold on ui-ux-pro-max stops companion installs', () => {
+  const prof = profile(tmp());
+  const dir = repo();
+  install({ prof, scope: 'user', dir, options: [], packs: [], run: fake() });
+  fs.writeFileSync(prof.configFile, JSON.stringify({ ...json(prof.configFile), holds: { 'ui-ux-pro-max': uiux.previous[0].sha } }));
+  fs.writeFileSync(path.join(dir, '.pantoo.json'), JSON.stringify({ companions: ['brand'] }));
+  const run = fake();
+  const results = update({ prof, dir, run });
+  assert.ok(!run.calls.some((c) => c.cmd === 'npx'));
+  assert.ok(results.some((r) => r.what === 'companions' && r.status === 'held'));
+});
+
+test('a hold that can\'t be honoured is refused, and nothing is written', () => {
+  const prof = profile(tmp());
+  const dir = tmp();
+  const ctx = { dir, prof };
+  assert.throws(() => setHolds({ hold: ['taste'] }, ctx), /run `npx pantoo-ai init` first/);
+  assert.ok(!fs.existsSync(prof.configFile));
+  install({ prof, scope: 'user', dir, options: [], packs: [], run: fake() });
+  const before = fs.readFileSync(prof.configFile, 'utf8');
+  assert.throws(() => setHolds({ hold: ['nope'] }, ctx), /Unknown tool "nope". Valid: impeccable, taste/);
+  assert.throws(() => setHolds({ release: ['constructor'] }, ctx), /Unknown tool/);
+  assert.throws(() => setHolds({ hold: ['taste'], release: ['taste'] }, ctx), /at once/);
+  assert.throws(() => setHolds({ hold: ['taste'] }, ctx), /isn't installed/);
+  skill(path.join(prof.claudeDir, 'skills'), 'impeccable', front('4.8.0'));
+  skill(path.join(prof.claudeDir, 'skills'), taste.skills[0], { 'SKILL.md': 'edited by hand' });
+  assert.throws(() => setHolds({ hold: ['impeccable', 'taste'] }, ctx), /no version this kit knows/);
+  assert.equal(fs.readFileSync(prof.configFile, 'utf8'), before);
 });

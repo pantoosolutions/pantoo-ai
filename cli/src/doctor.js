@@ -10,7 +10,7 @@ import { OLD_MACHINE_RULES, detectMachine, writeMachineRule } from './machine.js
 import { MANIFEST, PROJECT_FILE, detect, templatesDir } from './scaffold.js';
 import { sourceChecks } from './sources.js';
 import { PLACEHOLDER } from '../../plugin/skills/start-project/scripts/state.mjs';
-import { COMPANIONS, TOOLS, designMissing, skillState, stateRow } from './third-party.js';
+import { COMPANIONS, TOOLS, designMissing, readHolds, skillState, stateRow } from './third-party.js';
 
 const V1_SKILLS = ['architect', 'remember', 'recover', 'review', 'imprint', 'find-docs'];
 const KIT_AGENTS = fs.readdirSync(path.join(kitRoot, 'plugin', 'agents')).map((f) => f.replace(/\.md$/, ''));
@@ -42,12 +42,15 @@ export function guardMode(settings) {
   return entry?.options?.commit_guard ?? entry?.userConfig?.commit_guard ?? entry?.commit_guard ?? null;
 }
 
+// `update` skips a held tool, so a missing one is only restored after releasing it.
+const restore = (id, holds) => (Object.hasOwn(holds, id) ? `it is held, so run \`npx pantoo-ai update --release ${id}\`` : 'run `npx pantoo-ai update`');
+
 // One row per recorded tool, from what its folder holds. The saved pin only says the kit put it there.
 export function toolChecks(root, recorded = {}, holds = {}) {
   return Object.keys(recorded).filter((id) => TOOLS[id]).map((id) => {
     const what = `design tool ${id}`;
     const missing = TOOLS[id].skills.filter((s) => !fs.existsSync(path.join(root, s)));
-    if (missing.length) return { level: 'fail', what, note: `${missing.join(', ')} missing; run \`npx pantoo-ai update\`` };
+    if (missing.length) return { level: 'fail', what, note: `${missing.join(', ')} missing; ${restore(id, holds)}` };
     return { what, ...stateRow(skillState(id, { root, hold: holds[id] })) };
   });
 }
@@ -204,12 +207,12 @@ export function projectChecks(dir, prof) {
   }
 
   const root = path.join(dir, '.claude', 'skills');
-  const holds = readJson(prof.configFile, null)?.holds ?? {};
+  const holds = readHolds(prof);
   checks.push(...toolChecks(root, found.init?.thirdParty, holds));
   for (const c of project.companions ?? []) {
     // The names come from the project's file, so only the kit's own are looked up.
     if (!COMPANIONS.includes(c)) add('warn', `companion ${c}`, 'not a companion this kit knows');
-    else if (!fs.existsSync(path.join(root, c))) add('fail', `companion ${c}`, 'missing; run `npx pantoo-ai update`');
+    else if (!fs.existsSync(path.join(root, c))) add('fail', `companion ${c}`, `missing; ${restore('ui-ux-pro-max', holds)}`);
     else checks.push({ what: `companion ${c}`, ...stateRow(skillState('ui-ux-pro-max', { name: c, root, hold: holds['ui-ux-pro-max'] })) });
   }
   if (project.ui) {
