@@ -8,6 +8,7 @@ import { spawn } from './spawn.js';
 import { OPTIONS, PLUGIN, agentFiles } from './install.js';
 import { OLD_MACHINE_RULES, detectMachine, findBrowser, realSystem, writeMachineRule } from './machine.js';
 import { MANIFEST, PROJECT_FILE, detect, templatesDir } from './scaffold.js';
+import { setupChecks } from './setup-checks.js';
 import { sourceChecks } from './sources.js';
 import { PLACEHOLDER } from '../../plugin/skills/start-project/scripts/state.mjs';
 import { COMPANIONS, TOOLS, designMissing, readHolds, skillState, stateRow } from './third-party.js';
@@ -18,13 +19,20 @@ const KIT_AGENTS = fs.readdirSync(path.join(kitRoot, 'plugin', 'agents')).map((f
 // Each check is { level: 'ok' | 'warn' | 'fail', what, note }.
 // `dir` adds the checks for the project there, when it has a .pantoo.json.
 // A project-only setup (init --scope project, no user config) skips the user checks.
-export function doctor(prof, dir, { user = true, machine, system } = {}) {
+export function doctor(prof, dir, { user = true, machine, system = realSystem() } = {}) {
   const projectOnly = dir && !readJson(prof.configFile, null) && readJson(path.join(dir, PROJECT_FILE), {}).init;
-  const checks = user && !projectOnly ? userChecks(prof, machine) : [];
-  if (dir) checks.push(...projectChecks(dir, prof));
   const roots = [path.join(prof.claudeDir, 'skills'), ...(dir ? [path.join(dir, '.claude', 'skills')] : [])];
+  const info = user ? machine ?? detectMachine(system) : null;
+  const checks = user && !projectOnly ? userChecks(prof, info, pythonUsers(roots)) : [];
+  if (user) checks.push(...setupChecks(system, { dir, home: prof.home, gitBash: info.gitBash }));
+  if (dir) checks.push(...projectChecks(dir, prof));
   checks.push(...tasteChecks(roots, system));
   return checks;
+}
+
+// The installed skills whose scripts are Python.
+export function pythonUsers(roots) {
+  return ['ui-ux-pro-max', ...COMPANIONS].filter((s) => roots.some((r) => fs.existsSync(path.join(r, s))));
 }
 
 // taste's page checker needs Node 22 and a Chromium browser. Only a copy that ships the checker
@@ -78,7 +86,7 @@ export function thirdPartyChecks(prof, config) {
 }
 
 // Detects the machine, refreshes rules/machine.md, and flags what Claude Code needs on it.
-export function machineChecks(prof, info) {
+export function machineChecks(prof, info, { pythonFor = [] } = {}) {
   const checks = [];
   const wrote = writeMachineRule(prof.claudeDir, info);
   checks.push(wrote === 'foreign'
@@ -89,7 +97,11 @@ export function machineChecks(prof, info) {
       ? { level: 'ok', what: 'Git Bash', note: info.gitBash }
       : { level: 'fail', what: 'Git Bash', note: 'not found; install Git for Windows, or set CLAUDE_CODE_GIT_BASH_PATH' });
   }
-  if (!info.python) checks.push({ level: 'warn', what: 'python', note: 'no working python on PATH; skills that run scripts need one' });
+  if (!info.python) {
+    checks.push(pythonFor.length
+      ? { level: 'fail', what: 'python', note: `no working python on PATH, and ${pythonFor.join(', ')} run${pythonFor.length > 1 ? '' : 's'} on it; install Python 3` }
+      : { level: 'warn', what: 'python', note: 'no working python on PATH; skills that run scripts need one' });
+  }
   return checks;
 }
 
@@ -108,7 +120,7 @@ export function marketplaceChecks(prof, saved) {
   return [];
 }
 
-function userChecks(prof, machine) {
+function userChecks(prof, info, pythonFor) {
   const checks = [];
   const add = (level, what, note = '') => checks.push({ level, what, note });
   const config = readJson(prof.configFile, null);
@@ -116,7 +128,7 @@ function userChecks(prof, machine) {
   const major = Number(process.versions.node.split('.')[0]);
   add(major >= 20 ? 'ok' : 'fail', `node ${process.versions.node}`, major >= 20 ? '' : 'needs Node 20 or newer');
 
-  checks.push(...machineChecks(prof, machine ?? detectMachine()));
+  checks.push(...machineChecks(prof, info, { pythonFor }));
 
   const list = pluginList(prof);
   if (list.error) {
