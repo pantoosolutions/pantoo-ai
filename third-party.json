@@ -1,28 +1,32 @@
 {
-  "skillsCli": "skills@1.7.4",
+  "skillsCli": "skills@1.9.0",
   "tools": {
     "impeccable": {
       "label": "impeccable (shape, critique, audit, polish)",
       "repo": "pbakaus/impeccable",
-      "tag": "skill-v4.8.0",
+      "tag": "skill-v4.11.0",
       "via": "npm",
-      "npm": "impeccable@4.8.0",
+      "npm": "impeccable@4.11.0",
+      "bundle": {
+        "url": "https://github.com/pbakaus/impeccable/releases/download/skill-v4.11.0/universal.zip",
+        "sha256": "3f8d64930d0ec4d16161e9d909d9ec790e466e7e60e9ac647b1487a812a96051"
+      },
       "skills": ["impeccable"],
-      "agents": ["impeccable-asset-producer", "impeccable-documenter", "impeccable-finish-reviewer", "impeccable-manual-edit-applier"]
+      "agents": ["impeccable-asset-producer", "impeccable-documenter", "impeccable-finish-reviewer", "impeccable-manual-edit-applier", "impeccable-motion-reviewer"]
     },
     "taste": {
       "label": "taste (design-taste-frontend)",
       "repo": "Leonxlnx/taste-skill",
-      "tag": "v2.1.5",
-      "sha": "12af471f627f866411b4bd785b19646d3672784c",
+      "tag": "v2.5.1",
+      "sha": "f6b76575f949707b4e3c37cd86cb44b0b98643e8",
       "via": "skills",
       "skills": ["design-taste-frontend"]
     },
     "ui-ux-pro-max": {
       "label": "ui-ux-pro-max (styles, palettes, font pairings)",
       "repo": "nextlevelbuilder/ui-ux-pro-max-skill",
-      "tag": "v2.15.0",
-      "sha": "a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5",
+      "tag": "main@8db3633",
+      "sha": "8db36338810d0942567b97ce439affd1619fcf31",
       "via": "skills",
       "skills": ["ui-ux-pro-max"],
       "companions": ["design", "design-system", "brand", "banner-design", "slides", "ui-styling"]

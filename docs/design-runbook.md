@@ -13,8 +13,9 @@ this page is for reading once.
 | ui-ux-pro-max companions | Narrow helpers that fit one kind of project | `npx pantoo-ai new`, from the project type |
 | Google DESIGN.md CLI | Lints `DESIGN.md` (structure, WCAG contrast) and exports tokens | nothing: runs through `npx` |
 
-Versions are pinned in `third-party.json`; `npx pantoo-ai update` moves them. Don't run the tools' own
-updaters, or the pins drift.
+Versions are pinned in `third-party.json`; `npx pantoo-ai update` moves them. For impeccable the pin
+is the skill zip and its sha256, so a new version changes `npm`, `tag` and `bundle` together. Don't
+run the tools' own updaters, or the pins drift.
 
 ### Companions per project type
 

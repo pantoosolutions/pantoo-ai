@@ -16,7 +16,21 @@ import { THIRD_PARTY, installCompanions, installTool, installedRefs, removeTool 
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'pantoo-mg-'));
 const repo = () => { const d = tmp(); spawnSync('git', ['init', '-q', d]); return d; };
-const fake = () => { const calls = []; const run = (cmd, args, o = {}) => { calls.push({ cmd, args, ...o }); return { ok: true, out: '' }; }; run.calls = calls; return run; };
+// The pinned bundle is 20 MB, so tests expect this stand-in's hash and `fake` "downloads" it.
+const impeccable = THIRD_PARTY.tools.impeccable;
+const PINNED_BUNDLE = { ...impeccable.bundle };
+const BUNDLE = 'stand-in bundle';
+impeccable.bundle.sha256 = createHash('sha256').update(BUNDLE).digest('hex');
+const fake = ({ bundle = BUNDLE } = {}) => {
+  const calls = [];
+  const run = (cmd, args, o = {}) => {
+    calls.push({ cmd, args, ...o });
+    if (cmd === 'curl') fs.writeFileSync(args[args.indexOf('-o') + 1], bundle);
+    return { ok: true, out: '' };
+  };
+  run.calls = calls;
+  return run;
+};
 const json = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const taste = THIRD_PARTY.tools.taste;
 const uiux = THIRD_PARTY.tools['ui-ux-pro-max'];
@@ -42,12 +56,49 @@ test('impeccable installs through its npm spec at the right scope', () => {
   installTool('impeccable', { scope: 'user', prof, run });
   const dir = tmp();
   installTool('impeccable', { scope: 'project', dir, prof, run });
-  assert.deepEqual(run.calls[0].args.slice(0, 2), ['-y', THIRD_PARTY.tools.impeccable.npm]);
-  assert.ok(run.calls[0].args.includes('--scope=global'));
-  assert.ok(run.calls[0].args.includes('--no-hooks'));
-  assert.ok(run.calls[1].args.includes('--scope=project'));
-  assert.equal(run.calls[1].cwd, dir);
+  const [user, project] = run.calls.filter((c) => c.cmd === 'npx');
+  assert.deepEqual(user.args.slice(0, 2), ['-y', impeccable.npm]);
+  assert.ok(user.args.includes('--scope=global'));
+  assert.ok(user.args.includes('--no-hooks'));
+  assert.ok(project.args.includes('--scope=project'));
+  assert.equal(project.cwd, dir);
   assert.equal(json(path.join(dir, '.pantoo.json')).init.thirdParty.impeccable.pin, THIRD_PARTY.tools.impeccable.npm);
+});
+
+test('impeccable pins its skill bundle by url and sha256', () => {
+  const version = impeccable.npm.split('@')[1];
+  assert.equal(impeccable.tag, `skill-v${version}`);
+  assert.equal(PINNED_BUNDLE.url, `https://github.com/${impeccable.repo}/releases/download/${impeccable.tag}/universal.zip`);
+  assert.match(PINNED_BUNDLE.sha256, /^[0-9a-f]{64}$/);
+});
+
+test('impeccable hands the installer the checked bundle, then deletes it', () => {
+  const calls = fake();
+  let seen;
+  const run = (cmd, args, o) => {
+    if (cmd === 'npx') seen = fs.readFileSync(o.env.IMPECCABLE_BUNDLE_PATH, 'utf8');
+    return calls(cmd, args, o);
+  };
+  const [r] = installTool('impeccable', { scope: 'user', prof: profile(tmp()), run });
+  assert.equal(r.status, 'installed');
+  assert.deepEqual(calls.calls.map((c) => c.cmd), ['curl', 'npx']);
+  const [curl, npx] = calls.calls;
+  assert.equal(curl.args.at(-1), PINNED_BUNDLE.url);
+  assert.equal(curl.args[curl.args.indexOf('--proto-redir') + 1], '=https');
+  assert.equal(seen, BUNDLE);
+  assert.ok(!fs.existsSync(npx.env.IMPECCABLE_BUNDLE_PATH));
+});
+
+test('impeccable is not installed or recorded when the bundle is wrong or the download fails', () => {
+  const failing = () => { const run = (cmd, args) => { run.calls.push({ cmd, args }); return { ok: false, out: 'curl: (22) 404' }; }; run.calls = []; return run; };
+  for (const [run, note] of [[fake({ bundle: 'tampered' }), /sha256 is .* not installed/], [failing(), /download failed: curl: \(22\) 404/]]) {
+    const prof = profile(tmp());
+    const [r] = installTool('impeccable', { scope: 'user', prof, run });
+    assert.equal(r.status, 'FAILED');
+    assert.match(r.note, note);
+    assert.deepEqual(run.calls.map((c) => c.cmd), ['curl']);
+    assert.ok(!fs.existsSync(prof.configFile));
+  }
 });
 
 test('companions install at project scope without -g; removeTool deletes only what exists', () => {
@@ -126,6 +177,32 @@ test('update reinstalls only out-of-date pins and stale companions', () => {
   assert.ok(installs[1].includes('--skill slides') && !installs[1].includes('--skill brand'));
   assert.ok(run.calls.some((c) => c.args.join(' ') === 'plugin update pantoo@pantoo-ai --scope user'));
   assert.deepEqual(installedRefs(dir), { brand: uiux.sha, slides: 'old' });
+});
+
+test('lock v1 (`ref`) and lock v2 (`commit`) give the same refs', () => {
+  const dir = tmp();
+  const refs = (version, entry) => {
+    fs.writeFileSync(path.join(dir, 'skills-lock.json'), JSON.stringify({ version, skills: { brand: entry } }));
+    return installedRefs(dir);
+  };
+  const pinned = { brand: uiux.sha };
+  assert.deepEqual(refs(1, { ref: uiux.sha }), pinned);
+  assert.deepEqual(refs(2, { ref: uiux.sha, commit: uiux.sha, installMode: 'copy' }), pinned);
+  assert.deepEqual(refs(2, { commit: uiux.sha, installMode: 'copy' }), pinned);
+  assert.deepEqual(refs(2, { ref: 'main', commit: uiux.sha }), pinned);
+});
+
+test('update leaves companions that a lock v2 shows at the pin', () => {
+  const dir = repo();
+  const prof = profile(tmp());
+  install({ prof, scope: 'user', dir, options: [], packs: [], run: fake() });
+  fs.writeFileSync(path.join(dir, '.pantoo.json'), JSON.stringify({ companions: ['brand'] }));
+  fs.writeFileSync(path.join(dir, 'skills-lock.json'), JSON.stringify({ version: 2, skills: { brand: { commit: uiux.sha, installMode: 'copy' } } }));
+  fs.mkdirSync(path.join(dir, '.claude/skills/brand'), { recursive: true });
+  const run = fake();
+  const results = update({ prof, dir, run });
+  assert.ok(!run.calls.some((c) => c.cmd === 'npx'));
+  assert.ok(results.some((r) => r.what === 'companions' && r.status === 'up to date'));
 });
 
 test('new --local hides companion folders and the lock file', async () => {

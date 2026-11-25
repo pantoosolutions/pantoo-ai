@@ -1,4 +1,6 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawn } from './spawn.js';
 import { readJson, writeJson } from './files.js';
@@ -40,6 +42,23 @@ const addArgs = (repo, ref, names, global) => [
 ];
 const removeArgs = (names, global) => ['-y', THIRD_PARTY.skillsCli, 'remove', ...names, '-a', 'claude-code', '-y', ...(global ? ['-g'] : [])];
 
+// impeccable's installer takes the skill from impeccable.style's feed, whatever npm version runs it,
+// and doesn't check the signature of a local bundle. So the kit fetches the tagged zip, checks it
+// against its own sha256 and only then hands it over. Nothing is installed if either step fails.
+function withBundle({ url, sha256 }, run, env, install) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pantoo-bundle-'));
+  try {
+    const file = path.join(tmp, 'bundle.zip');
+    const got = run('curl', ['-fsSL', '--retry', '2', '--max-time', '600', '--proto', '=https', '--proto-redir', '=https', '-o', file, url], { env });
+    if (!got.ok || !fs.existsSync(file)) return { ok: false, out: `bundle download failed: ${lastLine(got.out) || url}` };
+    const actual = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+    if (actual !== sha256) return { ok: false, out: `bundle sha256 is ${actual.slice(0, 12)}, expected ${sha256.slice(0, 12)}; not installed` };
+    return install({ ...env, IMPECCABLE_BUNDLE_PATH: file });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 // Installs one design tool at "user" or "project" scope and records its pin.
 export function installTool(id, { scope, dir, prof, run = defaultRun }) {
   const tool = TOOLS[id];
@@ -50,7 +69,8 @@ export function installTool(id, { scope, dir, prof, run = defaultRun }) {
   const args = tool.via === 'npm'
     ? ['-y', tool.npm, 'install', '--providers=claude', `--scope=${user ? 'global' : 'project'}`, '--no-hooks', '--yes', '--force']
     : addArgs(tool.repo, tool.sha, tool.skills, user);
-  const r = run('npx', args, { cwd: cwdOf(scope, { dir, prof }), env: prof.env });
+  const npx = (env) => run('npx', args, { cwd: cwdOf(scope, { dir, prof }), env });
+  const r = tool.bundle ? withBundle(tool.bundle, run, prof.env, npx) : npx(prof.env);
   if (r.ok) record(scope, { dir, prof }, id, pinOf(id));
   return [{ what: `design tool ${id}`, status: r.ok ? 'installed' : 'FAILED', note: r.ok ? pinOf(id).slice(0, 19) : lastLine(r.out) }];
 }
@@ -91,10 +111,11 @@ export function removeTool(id, { scope, dir, prof, run = defaultRun }) {
   return results;
 }
 
-// { name: ref } from the project's skills-lock.json.
+// { name: ref } from the project's skills-lock.json. Lock v2 (skills 1.9) records the resolved sha
+// as `commit`; its `ref` is only what was asked for, and is missing when nothing was. v1 has `ref`.
 export function installedRefs(dir) {
   const lock = readJson(path.join(dir, LOCK_FILE), { skills: {} });
-  return Object.fromEntries(Object.entries(lock.skills ?? {}).map(([name, v]) => [name, v.ref]));
+  return Object.fromEntries(Object.entries(lock.skills ?? {}).map(([name, v]) => [name, v.commit ?? v.ref]));
 }
 
 // Pack tools whose skill folders are missing at both user and project scope.
