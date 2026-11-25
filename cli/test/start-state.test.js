@@ -63,3 +63,11 @@ test('a finished automation project without automations.md gets the add-automati
   fs.writeFileSync(path.join(dir, 'context', 'automations.md'), '# Automations\n');
   assert.equal(state(dir).mode, 'done');
 });
+
+test('v1 files left next to a v2 context pick the migrate mode', () => {
+  const dir = project('Rules: v99\n');
+  fs.mkdirSync(path.join(dir, 'context', 'plans'));
+  const s = state(dir);
+  assert.deepEqual(s.leftovers, ['context/plans/']);
+  assert.equal(s.mode, 'migrate');
+});

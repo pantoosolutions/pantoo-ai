@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { hash, readIfExists, readJson, sameText } from './files.js';
+import { hash, readIfExists, readJson, sameText, writeJson } from './files.js';
 import { kitRoot } from './paths.js';
 import { merge } from './settings.js';
 import { spawn } from './spawn.js';
@@ -120,6 +120,51 @@ export function marketplaceChecks(prof, saved) {
   return [];
 }
 
+// D34: the kit value a settings key had when its owner accepted their own value. A new kit value
+// changes the hash, so doctor warns again.
+const kitValueHash = (value) => hash(JSON.stringify(value ?? null));
+const kitSnippet = () => readJson(path.join(kitRoot, 'settings', 'settings-snippet.json'), {});
+
+// `doctor --accept <key>`: records that a settings difference is meant. Only the keys the saved
+// options manage, and only while they differ; returns [{ what, status, note }].
+export function acceptSettings(prof, keys) {
+  if (!keys.length) return [];
+  const config = readJson(prof.configFile, null);
+  if (!config) throw new Error(`Accepted settings are saved in ${prof.configFile}, which doesn't exist; run \`npx pantoo-ai init\` first.`);
+  const managed = (config.options ?? []).flatMap((id) => OPTIONS[id]?.settings ?? []);
+  const unknown = keys.find((k) => !managed.includes(k));
+  if (unknown) throw new Error(`Can't accept "${unknown}": the kit manages ${managed.length ? managed.join(', ') : 'no settings keys'} on this machine.`);
+  const settings = readJson(path.join(prof.claudeDir, 'settings.json'), {});
+  const snippet = kitSnippet();
+  const accepted = { ...config.accepted };
+  const results = [];
+  for (const k of keys) {
+    const now = settingsCheck(k, settings, snippet).level;
+    if (now === 'fail') results.push({ what: `accept ${k}`, status: 'not saved', note: 'missing from settings.json; run update' });
+    else if (now === 'ok') results.push({ what: `accept ${k}`, status: 'not needed', note: 'already the kit value' });
+    else {
+      accepted[k] = kitValueHash(snippet[k]);
+      results.push({ what: `accept ${k}`, status: 'saved', note: 'doctor shows it as yours until the kit value changes' });
+    }
+  }
+  if (Object.keys(accepted).length) config.accepted = accepted;
+  writeJson(prof.configFile, config);
+  return results;
+}
+
+// One kit-managed settings key: missing, the kit's, accepted as yours (D34), or different.
+export function settingsCheck(k, settings, snippet, accepted = {}) {
+  const what = `settings.json ${k}`;
+  if (!(k in settings)) return { level: 'fail', what, note: 'missing' };
+  // Only the kit's own keys count: extra keys (the Git Bash path, your own) are not a difference.
+  const diff = merge({ [k]: settings[k] }, { [k]: snippet[k] });
+  if (!diff.added.length && !diff.kept.length) return { level: 'ok', what, note: '' };
+  if (accepted[k] === kitValueHash(snippet[k])) return { level: 'ok', what, note: 'yours, accepted' };
+  return { level: 'warn', what, note: accepted[k]
+    ? `the kit value changed since you accepted yours (yours kept); \`npx pantoo-ai doctor --accept ${k}\` again if you still mean it`
+    : `differs from the kit value (yours kept); \`npx pantoo-ai doctor --accept ${k}\` if you meant it` };
+}
+
 function userChecks(prof, info, pythonFor) {
   const checks = [];
   const add = (level, what, note = '') => checks.push({ level, what, note });
@@ -153,7 +198,7 @@ function userChecks(prof, info, pythonFor) {
   }
 
   const settings = readJson(path.join(prof.claudeDir, 'settings.json'), {});
-  const snippet = readJson(path.join(kitRoot, 'settings', 'settings-snippet.json'), {});
+  const snippet = kitSnippet();
   for (const id of config.options ?? []) {
     const opt = OPTIONS[id];
     if (!opt) continue;
@@ -165,14 +210,7 @@ function userChecks(prof, info, pythonFor) {
       else if (sameText(current, kit)) add('ok', `rule ${f}`);
       else add('warn', `rule ${f}`, hash(current) === config.files?.[dest] ? 'older kit version; run update' : 'edited by you, differs from the kit');
     }
-    for (const k of opt.settings) {
-      add(k in settings ? 'ok' : 'fail', `settings.json ${k}`, k in settings ? '' : 'missing');
-      // Only the kit's own keys count: extra keys (the Git Bash path, your own) are not a difference.
-      const diff = k in settings && merge({ [k]: settings[k] }, { [k]: snippet[k] });
-      if (diff && (diff.added.length || diff.kept.length)) {
-        checks[checks.length - 1] = { level: 'warn', what: `settings.json ${k}`, note: 'differs from the kit value (yours kept)' };
-      }
-    }
+    for (const k of opt.settings) checks.push(settingsCheck(k, settings, snippet, config.accepted));
   }
 
   const mode = guardMode(settings);
@@ -249,8 +287,10 @@ export function projectChecks(dir, prof) {
   const project = found.project;
   add('ok', `project ${project.name}`, `${project.kind}${project.local ? ', local only' : ''}`);
 
-  if (found.v1.length || project.layout < MANIFEST.layout) {
+  if (project.layout < MANIFEST.layout) {
     add('warn', 'context layout', `v${project.layout}, the kit writes v${MANIFEST.layout}; run /pantoo:start-project to migrate`);
+  } else if (found.v1.length) {
+    add('warn', 'context layout', `v1 files left: ${found.v1.join(', ')}; /pantoo:start-project moves them`);
   }
   // A v1 context gets these files when it migrates, and the layout warning already covers that.
   const owed = !found.v1.length && project.layout >= MANIFEST.layout && fs.existsSync(path.join(dir, 'context'));

@@ -20,6 +20,9 @@ export function state(dir) {
   const ctx = path.join(dir, 'context');
   const hasCtx = fs.existsSync(ctx);
   const layout = fs.existsSync(path.join(ctx, 'roadmap.md')) ? 'v2' : hasCtx ? 'v1' : 'none';
+  // Old paths still there next to a v2 context (as `doctor` reports them): migrate moves them.
+  const manifest = JSON.parse(read(path.join(templates, 'manifest.json')) ?? '{}');
+  const leftovers = layout === 'v2' ? Object.keys(manifest.v1 ?? {}).filter((rel) => rel.startsWith('context/') && fs.existsSync(path.join(dir, rel))) : [];
   const sec = read(path.join(ctx, 'security.md'));
   const kit = rulesVersion(read(path.join(templates, 'context', 'security.md')));
   const proj = sec === null ? null : rulesVersion(sec);
@@ -35,8 +38,8 @@ export function state(dir) {
   const missingCopy = layout === 'v2' && record.ui === true && !fs.existsSync(path.join(ctx, 'copy.md'));
   const missingAutomations = layout === 'v2' && record.kind === 'automation' && !fs.existsSync(path.join(ctx, 'automations.md'));
   const finished = placeholders.length ? 'resume' : missingCopy ? 'add copy' : missingAutomations ? 'add automations' : 'done';
-  const mode = layout === 'v1' ? 'migrate' : layout === 'v2' ? (oldRules ? 'update rules' : finished) : 'scaffold';
-  return { layout, rules: { project: proj, kit }, placeholders, missingCopy, missingAutomations, mode };
+  const mode = layout === 'v1' || leftovers.length ? 'migrate' : layout === 'v2' ? (oldRules ? 'update rules' : finished) : 'scaffold';
+  return { layout, leftovers, rules: { project: proj, kit }, placeholders, missingCopy, missingAutomations, mode };
 }
 
 // Node realpaths the module URL, so compare real paths: the plugin dir may be reached through a symlink.
@@ -44,6 +47,7 @@ const real = (p) => { try { return fs.realpathSync(p); } catch { return path.res
 if (process.argv[1] && real(process.argv[1]) === real(fileURLToPath(import.meta.url))) {
   const s = state(root);
   console.log(`context layout: ${s.layout}`);
+  if (s.leftovers.length) console.log(`v1 files left: ${s.leftovers.join(', ')}`);
   console.log(`security rules: project ${s.rules.project === null ? 'none (no security.md)' : 'v' + s.rules.project}, kit v${s.rules.kit}`);
   console.log(`placeholder lines: ${s.placeholders.length ? '\n  ' + s.placeholders.join('\n  ') : 'none'}`);
   if (s.placeholders.length) console.log('(text that only talks about a placeholder check is not an unfilled placeholder)');

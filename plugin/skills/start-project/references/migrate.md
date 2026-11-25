@@ -19,6 +19,10 @@ intake resumes on them afterwards.
 
 `${CLAUDE_PLUGIN_ROOT}/templates/manifest.json` → `v1` lists every rename.
 
+**v1 files left in a v2 context** (the state script's `v1 files left`): move only those, by the
+table below. A v1 file whose v2 file already exists merges into it, and is deleted once the merge
+is approved. Then resume as the script's other lines say.
+
 **Never filled** (every v1 file still the template, `CLAUDE.md` too): nothing to carry over. With
 the developer's OK, `git rm` the v1 files, scaffold v2 fresh (step 2), and run the intake.
 

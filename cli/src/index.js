@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import * as p from '@clack/prompts';
-import { doctor } from './doctor.js';
+import { acceptSettings, doctor } from './doctor.js';
 import { GUARDS, OPTIONS, install } from './install.js';
 import { add, addNames, remove, update } from './manage.js';
 import { profile } from './paths.js';
@@ -69,6 +69,8 @@ remove flags
 
 doctor flags
   --dir <dir>             the project folder, default the current one
+  --accept <key>          a settings.json value of yours that differs from the kit's on purpose:
+                          shown as ok until the kit's value for that key changes
   --home <dir>            check another profile
 `;
 
@@ -208,6 +210,7 @@ export async function main(argv, { run = defaultRun, fetch: get = globalThis.fet
       check: { type: 'boolean' },
       hold: { type: 'string', multiple: true },
       release: { type: 'string', multiple: true },
+      accept: { type: 'string', multiple: true },
       ...Object.fromEntries(Object.keys(OPTIONS).map((id) => [`no-${id}`, { type: 'boolean' }])),
     },
   });
@@ -231,6 +234,9 @@ export async function main(argv, { run = defaultRun, fetch: get = globalThis.fet
     if (!positionals[0]) throw new Error(`add needs a name. Valid: ${addNames().join(', ')}, source <tool>.`);
     if (positionals[0] === 'source') return show(addSource({ name: positionals[1], dir }));
     show(add({ name: positionals[0], prof: profile(values.home), dir, force: values.force, companion: values.companion, run }));
-  } else if (command === 'doctor') process.exitCode = printChecks(doctor(profile(values.home), dir));
+  } else if (command === 'doctor') {
+    show(acceptSettings(profile(values.home), values.accept ?? []));
+    process.exitCode = printChecks(doctor(profile(values.home), dir));
+  }
   else console.log(HELP);
 }

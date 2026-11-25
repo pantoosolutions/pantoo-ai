@@ -32,7 +32,7 @@ go on unless they object. An argument (`new`, `existing`, `migrate`) overrides t
 
 | State | Mode |
 | --- | --- |
-| v1 `context/`, or `memory.md` from the old `remember` skill | **migrate**: [references/migrate.md](references/migrate.md), then resume |
+| v1 `context/`, v1 files left in a v2 one, or `memory.md` from the old `remember` skill | **migrate**: [references/migrate.md](references/migrate.md), then resume |
 | v2 with older security rules | **update rules**: [references/migrate.md](references/migrate.md) → Security rules, then resume or finish |
 | v2 with placeholders left | **resume**: continue the intake at the first phase whose file still has them |
 | v2, no placeholders, UI without `context/copy.md` or automation without `context/automations.md` | **add copy**: [references/site-copy.md](references/site-copy.md), or **add automations**: [references/automations.md](references/automations.md); then finish |
