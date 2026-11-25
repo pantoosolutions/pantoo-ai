@@ -23,7 +23,7 @@ export function state(dir) {
   const sec = read(path.join(ctx, 'security.md'));
   const kit = rulesVersion(read(path.join(templates, 'context', 'security.md')));
   const proj = sec === null ? null : rulesVersion(sec);
-  const files = [...(hasCtx ? walk(ctx) : []), ...['AGENTS.md', 'CLAUDE.md'].map((f) => path.join(dir, f)).filter(fs.existsSync)]
+  const files = [...(hasCtx ? walk(ctx) : []), ...['AGENTS.md', 'CLAUDE.md', 'CLAUDE.local.md'].map((f) => path.join(dir, f)).filter(fs.existsSync)]
     .filter((f) => f.endsWith('.md') && path.basename(f) !== 'roadmap.md');
   const placeholders = files.flatMap((f) => fs.readFileSync(f, 'utf8').split('\n')
     .map((l, i) => (PLACEHOLDER.test(l) ? `${path.relative(dir, f)}:${i + 1}: ${l.trim().slice(0, 100)}` : null)).filter(Boolean));

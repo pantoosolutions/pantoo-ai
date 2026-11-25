@@ -39,6 +39,7 @@ test('backend project drops UI files and the Design section', () => {
   assert.ok(fs.existsSync(path.join(dir, 'context/known-issues.md')));
   assert.ok(fs.existsSync(path.join(dir, 'context/contracts.md')));
   assert.doesNotMatch(read(dir, 'CLAUDE.md'), /## Design/);
+  assert.match(read(dir, 'CLAUDE.md'), /## Exceptions to global rules[\s\S]*\{\{EXCEPTIONS\}\}/);
   assert.doesNotMatch(read(dir, '.gitignore'), /taste/);
   assert.match(read(dir, 'AGENTS.md'), /known-issues\.md/);
 });

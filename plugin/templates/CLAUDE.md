@@ -14,6 +14,14 @@ Routing follows the global model-and-token-strategy rule. Specific to this proje
   release): {{AUTH_PAYMENTS_DATA_PATHS}}.
 - Hand work between sessions through files: "read context/specs/NNN-name.md and build it".
 
+## Exceptions to global rules
+
+Relaxed for this project only. Everything not listed here still applies.
+
+| Global rule | Allowed here | Why |
+| ----------- | ------------ | --- |
+{{EXCEPTIONS}}
+
 <!-- UI projects only: keep the section below, otherwise delete it. -->
 
 ## Design

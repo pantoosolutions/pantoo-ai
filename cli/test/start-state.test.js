@@ -33,3 +33,11 @@ test('placeholders: unfilled ones match, text about them does not', () => {
   for (const yes of ['| KI-01 | {{SHORT_TITLE}} | {{AREA}} |', 'Name: {{path:line}}']) assert.ok(PLACEHOLDER.test(yes), yes);
   for (const no of ['the build fails on `{{` placeholders', '{{TBD: founders review}}', 'render {{ value }} here', 'any `{{` remains']) assert.ok(!PLACEHOLDER.test(no), no);
 });
+
+test('an unanswered placeholder in CLAUDE.local.md resumes the intake', () => {
+  const dir = project('Rules: v99\n');
+  fs.writeFileSync(path.join(dir, 'CLAUDE.local.md'), '{{EXCEPTIONS}}\n');
+  const s = state(dir);
+  assert.deepEqual(s.placeholders, ['CLAUDE.local.md:1: {{EXCEPTIONS}}']);
+  assert.equal(s.mode, 'resume');
+});

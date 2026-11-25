@@ -27,6 +27,14 @@ When compacting, keep: the current task and its spec or plan path, decisions mad
 changed, failing checks with their exact errors, and open questions. Drop exploration output and
 superseded attempts.
 
+## Exceptions to global rules
+
+Relaxed for this project only. Everything not listed here still applies.
+
+| Global rule | Allowed here | Why |
+| ----------- | ------------ | --- |
+{{EXCEPTIONS}}
+
 <!-- UI projects only: keep the section below, otherwise delete it. -->
 
 ## Design

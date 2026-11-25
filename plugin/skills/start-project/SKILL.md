@@ -69,7 +69,8 @@ Do what `npx pantoo-ai new` does, from `${CLAUDE_PLUGIN_ROOT}/templates/`:
 Read the mode's reference file and follow it. These rules hold in every mode:
 
 - **Write only** `context/`, `AGENTS.md`, `CLAUDE.md` (`CLAUDE.local.md` when local) and
-  `.pantoo.json`. Code is read-only; anything worth fixing goes to `context/known-issues.md`.
+  `.pantoo.json`, plus permissions the developer approves (Exceptions, below). Code is read-only;
+  anything worth fixing goes to `context/known-issues.md`.
 - **Local mode:** never edit a tracked file. The team's `CLAUDE.md`, `AGENTS.md` and
   `.claude/rules/` are confirmed conventions: cite them from `context/`, don't copy or re-ask them.
 - **One topic at a time,** a batch of three to five questions at most, each with a recommended
@@ -89,12 +90,16 @@ Read the mode's reference file and follow it. These rules hold in every mode:
   hand off to `/pantoo:design-flow` (brief, look), then resume at the design phase.
   `DESIGN.md` then owns every token value and `context/ui/tokens.md` only maps it.
 
+While `{{EXCEPTIONS}}` is in `CLAUDE.md` or `CLAUDE.local.md`, ask about relaxing a global rule
+once the phases are done: [references/exceptions.md](references/exceptions.md). A no deletes that
+whole section.
+
 Last, fill `AGENTS.md`: the one-line description, the real commands, and three to five hard rules
 taken from the invariants in `architecture.md`. In `CLAUDE.md`, fill the high-risk paths.
 
 ## 4. Finish
 
-1. Sweep: `grep -rn '{{\|GUIDANCE' context AGENTS.md CLAUDE.md` shows only `{{TBD: …}}`, code,
+1. Sweep: `grep -rn '{{\|GUIDANCE' context AGENTS.md CLAUDE.md` (`CLAUDE.local.md` when local) shows only `{{TBD: …}}`, code,
    and `context/roadmap.md`.
 2. Set `"layout": 2` in `.pantoo.json`.
 3. Summary, in this shape:
