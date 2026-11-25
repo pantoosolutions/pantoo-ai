@@ -99,6 +99,36 @@ The build agent operates as a senior engineer:
 
 ---
 
+## Cross-OS
+
+> 🧭 GUIDANCE: Keep these even when one machine works on the project today. Keep the npm rule
+> only if the project uses npm.
+
+- **Paths:** turn `\` into `/` before comparing or printing a path
+  (`relative(from, to).split(sep).join('/')`). Windows returns `\`, so a result compared with a
+  `/` literal never matches there.
+- **Exit codes:** scripts set `process.exitCode` and let the process end. Call `process.exit()`
+  only when nothing is pending: with sockets still closing, it can crash Node on Windows.
+- **Env vars:** none inline (`VAR=1 command`) in anything a tool runs in its own shell: npm
+  scripts, Playwright's `webServer.command`. `cmd.exe` can't read them. Use `webServer.env`,
+  `cross-env` or an `.mjs` runner.
+- **npm install scripts:** npm 12 blocks a dependency's install script until it's approved (npm 11
+  only lists it), and the install still succeeds. Review `npm approve-scripts
+  --allow-scripts-pending`, approve each package the stack needs with `npm approve-scripts <pkg>`,
+  run `npm rebuild <pkg>`, and commit the `allowScripts` entry in `package.json`.
+
+---
+
+## Code Stands on Its Own
+
+> 🧭 GUIDANCE: Keep as written. The code may ship without `context/`.
+
+- No code, test or build script reads `context/`. A value the code needs lives in the code or its
+  config.
+- Comments don't cite spec paths (`context/specs/…`). They state the reason itself.
+
+---
+
 ## Testing
 
 > 🧭 GUIDANCE: Read by `write-tests` and `verify-feature`. If the stack has no tests yet, record

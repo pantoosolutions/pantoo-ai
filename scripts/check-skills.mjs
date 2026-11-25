@@ -50,6 +50,8 @@ for (const dir of skills) {
     for (const key of ['model', 'allowed-tools']) if (key in fm) fail(file, `frontmatter must not set ${key}`);
     if (!/^Recommended:/m.test(text.slice(parsed.end))) fail(file, 'no line starting with "Recommended:"');
   }
+  // Claude Code replaces $0-$9 in a skill body with the skill's arguments (awk: write $(0)).
+  if (/\$\d/.test(text)) fail(file, 'bare $N is replaced by the skill\'s arguments');
   if (lineCount(text) > 120) fail(file, `${lineCount(text)} lines, budget is 120`);
   for (const sub of ['references', 'modes']) {
     for (const f of walk(path.join(base, sub))) {

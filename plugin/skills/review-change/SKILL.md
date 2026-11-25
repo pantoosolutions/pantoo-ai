@@ -47,6 +47,14 @@ Spawn the reviewer with the base, the diff command, the changed files, the spec 
 > 3. **Production:** errors handled; loading, empty and error states; edge cases; the `security.md`
 >    rules the diff triggers; tests where `standards.md` → Testing requires them.
 > Also read the slice's latest `context/reviews/*-verify.md` → Fragile but passing, if there is one.
+> Run this over the diff (`<base>` is `HEAD` for the working tree), and search each untracked code
+> file for the same pattern:
+> `git diff --no-ext-diff --src-prefix=a/ --dst-prefix=b/ -U0 <base> -- . ':(exclude)*.md' ':(exclude)context' ':(exclude).claude' ':(exclude).pantoo.json' | awk '/^\+\+\+ /{f=substr($(0),7);next} /^@@/{split($(3),h,",");n=substr(h[1],2)+0;next} /^\+/{print f":"n": "substr($(0),2);n++}' | grep -E 'relative\(|relpath\(|join\(|process\.exit\(|context/'`
+> Open each hit and report it only when it's one of these (System layer):
+> - **Paths:** a `relative()`, `relpath()` or `join()` result compared with a `/` literal, or
+>   printed, without turning `\` into `/`. Follow the value: the literal may be lines away.
+> - **Exit:** `process.exit()` in a script while a request, stream or other work may be pending.
+> - **Context:** code that reads `context/`, or a comment that cites a path in it.
 > End with a verdict: approve, approve with nits, changes requested, or blocked.
 
 With `release`, add: "Release pass: check every rule in `security.md`, the extended parts of a

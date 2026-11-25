@@ -37,8 +37,10 @@ Scripts also emulate real viewports; Chrome's `resize_window` reports success an
 
 ## Use
 
-- Assert measurements, not pixels: `boundingBox()`, `getComputedStyle`, `matchMedia`,
-  `scrollWidth - clientWidth` for sideways overflow.
+- Assert measurements, not pixels: `boundingBox()`, `getComputedStyle`, `matchMedia`.
+- Sideways overflow: `scrollWidth - clientWidth` on `document.documentElement` is **at most 0**.
+  Never assert exactly 0 or compare with `innerWidth`: Windows' classic scrollbar takes 15 px, and
+  with `scrollbar-gutter: stable` the difference can read -15.
 - Throwaway check: write `e2e/scratch/<name>.spec.ts` that `console.log(JSON.stringify(...))`s the
   numbers needed, run
   `npx playwright test e2e/scratch/<name>.spec.ts --project=phone 2>&1 | grep -E '^\{|passed|failed'`,
