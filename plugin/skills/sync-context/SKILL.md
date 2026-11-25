@@ -34,6 +34,9 @@ Flag, don't edit:
 
 - A new dependency missing from `standards.md` → Approved dependencies or from `libraries.md`:
   the developer adds it, or `write-spec` if it was a real choice.
+- A new framework or motion library → its row in
+  `${CLAUDE_PLUGIN_ROOT}/skills/start-project/references/catalog.md`: name the pick and its
+  install command, for the developer to approve. A second motion library breaks the invariant.
 - A spec the code now contradicts → stale: `/pantoo:write-spec NNN` to update or supersede it.
 - Every `Assumed` spec → decision debt, `/pantoo:write-spec NNN` to ratify.
 - Anything that would rewrite curated prose, reorder slices or add slices (`plan-roadmap`) → listed

@@ -32,7 +32,8 @@ Spend the effort on **Core User Flow** (concrete enough to build a clickable pro
 the **scope lists**. If they list fifteen features, help find the four that make v1 and move the
 rest to out of scope. Rename "Pages" to "Commands", "Endpoints" or "Screens" when it isn't a
 multi-page app. The core data here is the concept and who may change it; the schema waits for
-Phase 3.
+Phase 3. A UI project also answers the motion, 3D and video questions in
+[catalog.md](catalog.md) → Motion and media first, each marked v1 or later.
 
 ## Phase 2: Design → `ui/tokens.md`, `ui/rules.md` (UI projects only)
 
@@ -70,6 +71,10 @@ and may not do), data flow for the main operations, data model tied to Phase 1's
 model, and **invariants**: flat, checkable rules ("every query is scoped to the current user").
 Ask what would scare them if it silently broke; each answer is an invariant.
 
+A UI project picks its one motion library here, from Phase 1's motion answer, and writes it as an
+invariant. Once the stack is settled, read [catalog.md](catalog.md) and recommend its skills and
+plugins as it says.
+
 By kind, ask these too, each with a recommendation:
 
 - **Mobile:** platforms (iOS, Android, both) and the lowest OS version for each; the framework
@@ -93,8 +98,8 @@ By kind, ask these too, each with a recommendation:
   database and does the client reach it directly; any uploads; any endpoint that costs money
   per call (AI, email, SMS); where it deploys and from which CI. Automation: rule 25 is never
   `n/a` ([automations.md](automations.md) → Then `security.md`).
-- `libraries.md`: one section per library from Phase 3, on how **this** project uses it, plus
-  whether a skill or MCP server covers it. Keep the order-of-authority preamble.
+- `libraries.md`: one section per library from Phase 3, on how **this** project uses it. Keep the
+  **Check first:** line Phase 3 wrote from the catalog (`Skill: …`, `Plugin: …` or `none: ctx7`). Keep the order-of-authority preamble.
 - Secrets: ask which keys and tokens the project needs on a developer's machine (API keys, a
   CLI login such as wrangler or gh, `.env.local`). Write each one to `.pantoo.json` → `secrets`
   as `{ "name", "env" }` or `{ "name", "file" }` (`~/…` or a path in the project), with a `note`

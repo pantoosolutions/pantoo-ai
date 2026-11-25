@@ -214,3 +214,10 @@ test('doctor warns an automation project without automations.md, and only that k
   scaffold(backend, { ...base, kind: 'backend', ui: false });
   assert.equal(check(backend), undefined);
 });
+
+test('a web app with components.json gets no ui-styling companion', () => {
+  const dir = tmp();
+  fs.writeFileSync(path.join(dir, 'components.json'), '{}');
+  scaffold(dir, base);
+  assert.ok(!JSON.parse(read(dir, '.pantoo.json')).companions.includes('ui-styling'));
+});

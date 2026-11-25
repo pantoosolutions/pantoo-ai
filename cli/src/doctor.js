@@ -348,6 +348,9 @@ export function projectChecks(dir, prof) {
     else if (!fs.existsSync(path.join(root, c))) add('fail', `companion ${c}`, `missing; ${restore('ui-ux-pro-max', holds)}`);
     else checks.push({ what: `companion ${c}`, ...stateRow(skillState('ui-ux-pro-max', { name: c, root, hold: holds['ui-ux-pro-max'] })) });
   }
+  if (project.companions?.includes('ui-styling') && fs.existsSync(path.join(dir, 'components.json'))) {
+    add('warn', 'companion ui-styling', 'the kit now recommends the official `shadcn` skill: install it (the start-project catalog has the command), then delete .claude/skills/ui-styling and its entry in .pantoo.json');
+  }
   if (project.ui) {
     const missing = designMissing({ dir, prof });
     if (missing.length) add('warn', `design pack: ${missing.join(', ')} not installed`, 'run `npx pantoo-ai add design`');

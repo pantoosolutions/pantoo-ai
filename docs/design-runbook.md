@@ -22,7 +22,7 @@ run the tools' own updaters, or the pins drift.
 
 | Project type | Companions |
 | --- | --- |
-| Web app, dashboard, SaaS | `design-system`; `ui-styling` with shadcn/Tailwind |
+| Web app, dashboard, SaaS | `design-system` (a shadcn project gets the official `shadcn` skill from the intake catalog) |
 | Marketing site, landing | `brand`, `banner-design` |
 | Brand or identity work | `brand`, `design` (needs a Gemini API key) |
 | Pitch or presentation | `slides` |

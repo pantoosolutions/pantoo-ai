@@ -59,3 +59,16 @@ test('v1 files left in a v2 context are named, not reported as a layout mismatch
   assert.equal(layout.level, 'warn');
   assert.equal(layout.note, 'v1 files left: context/plans/; /pantoo:start-project moves them');
 });
+
+test('a shadcn project still on ui-styling is pointed at the official shadcn skill', () => {
+  const dir = tmp();
+  scaffold(dir, { name: 'demo', kind: 'web-app', ui: true, existing: false, multiSurface: false, local: false, share: false });
+  const record = json(path.join(dir, '.pantoo.json'));
+  write(path.join(dir, '.pantoo.json'), { ...record, companions: [...record.companions, 'ui-styling'] });
+  const prof = profile(tmp());
+  const note = (checks) => checks.filter((c) => c.what === 'companion ui-styling' && /official `shadcn` skill/.test(c.note));
+  assert.equal(note(projectChecks(dir, prof)).length, 0, 'no components.json, no note');
+  fs.writeFileSync(path.join(dir, 'components.json'), '{}');
+  const [row] = note(projectChecks(dir, prof));
+  assert.equal(row.level, 'warn');
+});

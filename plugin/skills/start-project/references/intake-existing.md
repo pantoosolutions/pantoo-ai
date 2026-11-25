@@ -114,6 +114,10 @@ is a finding. Where the auth check happens and what bypasses it. Canonical snipp
 named files. Invariants from defensive patterns plus "what would scare you if it broke?". An
 invariant the code violates stays an invariant; the violation goes to `known-issues.md`.
 
+From the lockfile stack, read [catalog.md](catalog.md) and recommend as it says. The motion library
+found becomes the invariant "Motion uses <library> only"; two found is an inconsistency that ends
+in a decision (which one new code uses), and the other goes to `known-issues.md`.
+
 Multi-surface: a system map first (surfaces, who talks to whom, direction), each surface's stack
 separately, and the shared package's real use: what's duplicated outside it.
 
@@ -159,6 +163,7 @@ and agent config, following [automations.md](automations.md).
   bodies written to the database (8), `catch` blocks that allow in auth or payment code (22). Confirmed gaps go to `known-issues.md`, area `security`.
 - `libraries.md`: from real call sites at the lockfile version: initialisation, client/server
   split, the project's wrapper, gotchas from comments and commits, the canonical example file.
+  Keep the **Check first:** line Phase 2 wrote from the catalog.
 - Secrets: from `.env*` files, `process.env.X` reads and the CLIs the scripts call (wrangler,
   gh, cloud CLIs), list the keys a developer needs, confirm them, and write each to
   `.pantoo.json` → `secrets` (`name`, then `env`, or `file` as `~/…` or a project path, and a

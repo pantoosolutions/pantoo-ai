@@ -69,9 +69,9 @@ Do what `npx pantoo-ai new` does, from `${CLAUDE_PLUGIN_ROOT}/templates/`:
 
 Read the mode's reference file and follow it. These rules hold in every mode:
 
-- **Write only** `context/`, `AGENTS.md`, `CLAUDE.md` (`CLAUDE.local.md` when local) and
-  `.pantoo.json`, plus permissions the developer approves (Exceptions, below). Code is read-only;
-  anything worth fixing goes to `context/known-issues.md`.
+- **Write only** `context/`, `AGENTS.md`, `CLAUDE.md` (`CLAUDE.local.md` when local),
+  `.pantoo.json`, and what the developer approves: permissions (Exceptions, below) and skill
+  installs ([catalog.md](references/catalog.md)). Code is read-only; fixes go to `known-issues.md`.
 - **Local mode:** never edit a tracked file. The team's `CLAUDE.md`, `AGENTS.md` and
   `.claude/rules/` are confirmed conventions: cite them from `context/`, don't copy or re-ask them.
 - **One topic at a time,** a batch of three to five questions at most, each with a recommended

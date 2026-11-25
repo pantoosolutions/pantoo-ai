@@ -51,7 +51,6 @@ export function detect(dir) {
     hasCode: CODE_MARKERS.some((m) => exists(dir, m)),
     other: OTHER_CONTEXT.filter((rel) => exists(dir, rel)),
     tracked: ['CLAUDE.md', 'AGENTS.md'].filter((rel) => isTracked(dir, rel)),
-    shadcn: exists(dir, 'components.json'),
     isRepo: git(dir, ['rev-parse', '--git-dir']) !== null,
   };
 }
@@ -172,8 +171,8 @@ export function scaffold(dir, choices) {
     results.push({ what: '.claude/settings.json', status: merged.added.length ? `merged: ${merged.added.join(', ')}` : 'unchanged' });
   }
 
+  // shadcn projects get the official `shadcn` skill from the intake catalog, not `ui-styling`.
   const companions = [...KINDS[choices.kind].companions];
-  if (choices.kind === 'web-app' && found.shadcn) companions.push('ui-styling');
   const init = detect(dir).init;
   writeJson(path.join(dir, PROJECT_FILE), {
     layout: skipContext ? 1 : MANIFEST.layout,
