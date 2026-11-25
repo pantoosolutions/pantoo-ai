@@ -33,7 +33,7 @@ npx pantoo-ai@latest init
 | Scope: `user` (every project on this machine) or `project` (this repo, shared with the team) | user |
 | Rules: model routing, ctx7 for docs, web access, no AI attribution | all on |
 | Commit guard: block, warn or off, for commits and PRs that credit an AI | block |
-| Design pack: [impeccable](https://github.com/pbakaus/impeccable), [taste](https://github.com/Leonxlnx/taste-skill), [ui-ux-pro-max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill), installed at pinned versions | on (`--no-design` to skip) |
+| Design pack: [impeccable](https://github.com/pbakaus/impeccable), [taste](https://github.com/Leonxlnx/taste-skill), [ui-ux-pro-max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill), six of [Emil Kowalski's motion skills](https://github.com/emilkowalski/skills), installed at pinned versions | on (`--no-design` to skip) |
 
 It installs the plugin from this repo's marketplace, copies the rules to `~/.claude/rules/`, merges
 the settings into `~/.claude/settings.json` (a backup is kept, and no key of yours is lost), then runs
@@ -140,4 +140,4 @@ branch the clone has checked out, and `doctor` warns about it.
 [MIT](LICENSE), © Pantoo Solutions S.A.C. The skills adapt ideas from `jsmastery-pro/skills` and
 `jsmastery-pro/jsm-agent-skill` (MIT); see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md). The
 design tools are installed from their own repos, not copied: impeccable (Apache-2.0), taste (MIT),
-ui-ux-pro-max (MIT).
+ui-ux-pro-max (MIT), Emil Kowalski's skills (MIT).

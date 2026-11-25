@@ -10,6 +10,7 @@ this page is for reading once.
 | impeccable | Judges UI: product brief (`init`), `shape`, `critique`, `audit`, `polish` and targeted fixes | `npx pantoo-ai init` (design pack) |
 | taste (`design-taste-frontend`) | Builds website pages (not app screens): layout, sections, motion, checked in a real browser | `npx pantoo-ai init` (design pack) |
 | ui-ux-pro-max | Reference: styles, palettes, font pairings, UX guidelines; generates a starting design system | `npx pantoo-ai init` (design pack) |
+| Emil Kowalski's skills (`animate`, `review-animations`, `improve-animations`, `animation-performance`, `animation-vocabulary`, `emil-design-eng`) | Motion: builds it, reviews it, audits a whole app, fixes jank, names an effect | `npx pantoo-ai init` (design pack) |
 | ui-ux-pro-max companions | Narrow helpers that fit one kind of project | `npx pantoo-ai new`, from the project type |
 | Google DESIGN.md CLI | Lints `DESIGN.md` (structure, WCAG contrast) and exports tokens | nothing: runs through `npx` |
 
@@ -41,7 +42,7 @@ with `npx pantoo-ai add <companion>`.
 | 2 | Product brief (`/impeccable init`) | `PRODUCT.md` |
 | 3 | Choose the look, lint it, preview it (`/pantoo:design-flow look`) | `DESIGN.md` |
 | 4 | Finish the intake: tokens mapped, stack chosen, export set | `context/ui/`, the rest of `context/` |
-| 5 | Per screen: spec or shape → build → capture → critique, audit, polish | screens, registry entries |
+| 5 | Per screen: spec or shape → build → capture → critique, audit, motion, polish | screens, registry entries |
 
 The product comes before the look because impeccable judges against `PRODUCT.md`. The look comes
 before the token wiring so the intake maps real values instead of guessing them.
@@ -73,6 +74,10 @@ token export, a brand kit, a Claude Design handoff, a live site) is a **source**
 
 - **One generator, one reviewer.** taste builds website pages, impeccable reviews every screen.
   Asking both to build one screen pulls in two directions.
+- **Emil's skills own motion.** `animate` builds it (not `/impeccable animate`), and
+  `review-animations` reviews it on every screen that moves, taste's pages included. Type
+  `/review-animations` yourself: it doesn't run on its own. `improve-animations` writes plans under
+  `plans/`; build them as slices, not with its `execute`.
 - **App screens skip taste.** Dashboards, settings and other screens people work in are built from
   `DESIGN.md` and `context/ui/`. So are a mobile app's native screens, which impeccable reviews.
 - **taste checks its own pages.** While in use it adds a Stop hook that tests the page in a headless
@@ -93,6 +98,7 @@ token export, a brand kit, a Claude Design handoff, a live site) is a **source**
 | A skill doesn't show up | Restart Claude Code; skills load at session start. Then `npx pantoo-ai doctor` |
 | Two copies of a skill | Installed globally by hand and by the kit. Keep the kit's; remove the other |
 | A companion fires when you wanted impeccable or taste | Name the skill you want in the prompt |
+| `animate` mentions `animate-expo` or `find-animation-opportunities` | Those aren't in the design pack; ignore the pointer |
 | `designmd lint` prints nothing | You used `npx @google/design.md`; use `npx -y -p @google/design.md designmd lint DESIGN.md` |
 | Claude doesn't stop after building a website page | taste's Stop hook found failures. Let it fix them, or say to ship the page as it is |
 | ui-ux-pro-max scripts fail on Windows | It calls `python3`; see the machine rule `doctor` writes |

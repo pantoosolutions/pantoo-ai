@@ -79,17 +79,16 @@ function readSkill(id, name, dir) {
 export const readHolds = (prof) => readJson(prof.configFile, null)?.holds ?? {};
 export const heldRow = (what, id, pin) => ({ what, status: 'held', note: `at ${pinLabel(id, pin)}; \`npx pantoo-ai update --release ${id}\` moves it` });
 
-// The pin of what a skill folder holds, or null when it's no version the kit can name.
+// The pin of what a tool's skill folders hold, or null when it's no version the kit can name. A tool
+// with several skills is at a pin only when every one of them is.
 function installedPin(id, root) {
   const tool = TOOLS[id];
-  const name = tool.skills[0];
-  const dir = path.join(root, name);
   if (tool.via === 'npm') {
-    const version = skillVersion(dir);
+    const version = skillVersion(path.join(root, tool.skills[0]));
     return version && `${tool.npm.slice(0, tool.npm.lastIndexOf('@'))}@${version}`;
   }
-  const actual = folderHash(dir);
-  return [tool, ...(tool.previous ?? [])].find((p) => p.hashes?.[name] === actual)?.sha ?? null;
+  const actual = Object.fromEntries(tool.skills.map((n) => [n, folderHash(path.join(root, n))]));
+  return [tool, ...(tool.previous ?? [])].find((p) => tool.skills.every((n) => p.hashes?.[n] === actual[n]))?.sha ?? null;
 }
 
 // Adds and releases holds in the user config; all of them are checked before anything is written.
@@ -104,7 +103,7 @@ export function setHolds({ hold = [], release = [] }, { dir, prof }) {
   const holds = { ...config.holds };
   const results = [];
   for (const id of hold) {
-    const root = [skillsRoot('user', { prof }), skillsRoot('project', { dir })].find((r) => fs.existsSync(path.join(r, TOOLS[id].skills[0])));
+    const root = [skillsRoot('user', { prof }), skillsRoot('project', { dir })].find((r) => TOOLS[id].skills.every((s) => fs.existsSync(path.join(r, s))));
     if (!root) throw new Error(`Can't hold ${id}: it isn't installed.`);
     const pin = installedPin(id, root);
     if (!pin) throw new Error(`Can't hold ${id}: the skill in ${root} is no version this kit knows (newer, or changed by hand).`);
@@ -135,6 +134,13 @@ export function skillState(id, { name = TOOLS[id].skills[0], root, hold }) {
   if (hold) return { state: 'changed', kit, held: pinLabel(id, hold), found: skill.is(pin) ? kit : skill.found };
   if (skill.is(pin)) return { state: 'ok', kit };
   return { state: skill.older ? 'older' : 'newer', kit, found: skill.found };
+}
+
+// A tool's state across all its skills: the first skill that isn't ok or held, with its name, else the
+// first skill's. `older` is true when any skill is older, so update re-pins it.
+export function toolState(id, { root, hold }) {
+  const states = TOOLS[id].skills.map((name) => ({ name, ...skillState(id, { name, root, hold }) }));
+  return { ...(states.find((s) => s.state !== 'ok' && s.state !== 'held') ?? states[0]), older: states.some((s) => s.state === 'older') };
 }
 
 // The doctor row for a state.
@@ -250,9 +256,10 @@ export function installedRefs(dir) {
   return Object.fromEntries(Object.entries(lock.skills ?? {}).map(([name, v]) => [name, v.commit ?? v.ref]));
 }
 
-// Pack tools whose skill folders are missing at both user and project scope.
+// The pack tools design-flow hands work to, when their skill folders are missing at both user and
+// project scope. ui-ux-pro-max is only looked things up in.
 export function designMissing({ dir, prof }) {
-  return ['impeccable', 'taste'].filter((id) => !TOOLS[id].skills.every((s) => [skillsRoot('user', { prof }), skillsRoot('project', { dir })].some((d) => fs.existsSync(path.join(d, s)))));
+  return ['impeccable', 'taste', 'emil'].filter((id) => !TOOLS[id].skills.every((s) => [skillsRoot('user', { prof }), skillsRoot('project', { dir })].some((d) => fs.existsSync(path.join(d, s)))));
 }
 
 export const hasSkills = (scope, ctx, id) => TOOLS[id].skills.every((s) => fs.existsSync(path.join(skillsRoot(scope, ctx), s)));

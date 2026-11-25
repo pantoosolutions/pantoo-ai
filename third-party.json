@@ -66,9 +66,25 @@
       "via": "skills",
       "skills": ["ui-ux-pro-max"],
       "companions": ["design", "design-system", "brand", "banner-design", "slides", "ui-styling"]
+    },
+    "emil": {
+      "label": "Emil Kowalski's motion skills (animate, review-animations)",
+      "repo": "emilkowalski/skills",
+      "tag": "main@64eb3de",
+      "sha": "64eb3deb9a5fbfa041faf783e0bc3fd635872e9c",
+      "hashes": {
+        "animate": "456fcbbf75667e7e31ab5549aa6a1dd5779fac7ff1f35b7628716df07b980387",
+        "animation-performance": "b8eef045ad436cf184247e3aad603002cab05a8761b746d7ee1c97083fb8bf04",
+        "animation-vocabulary": "12d3580f19a6d1880aa5e8954ddfe0e11a6be831bd917a8ffd68736bc96f70cd",
+        "emil-design-eng": "943e5965be39d05809babf51709660411ccdb4f8ab08e425bc57dca662c59182",
+        "improve-animations": "b082fcf607a0882d48b3dcc3e4c08a327e7e0bbb9159006386105d126a2560f2",
+        "review-animations": "5bb05c62dc9984a0461be4cfa5618f3be4bcb41504f05af7a04146585535f021"
+      },
+      "via": "skills",
+      "skills": ["animate", "review-animations", "improve-animations", "animation-performance", "animation-vocabulary", "emil-design-eng"]
     }
   },
   "packs": {
-    "design": ["impeccable", "taste", "ui-ux-pro-max"]
+    "design": ["impeccable", "taste", "ui-ux-pro-max", "emil"]
   }
 }

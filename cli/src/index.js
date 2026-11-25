@@ -58,7 +58,7 @@ update flags
   --dir <dir>             the project folder, default the current one (project choices replayed too)
   --no-self-update        don't re-run through a newer pantoo-ai from npm
   --check                 only compare each design tool's pin with upstream; installs and writes nothing
-  --hold <tool>           keep the installed version on this machine: impeccable, taste, ui-ux-pro-max
+  --hold <tool>           keep the installed version on this machine: ${Object.keys(THIRD_PARTY.tools).join(', ')}
   --release <tool>        end a hold, so update moves the tool to the kit's pin
   --force, --home <dir>   as in init
 

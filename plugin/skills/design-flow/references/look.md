@@ -15,7 +15,8 @@ brand-specific. It must not read as the source brand.
 
 **B. Generate one.** Use ui-ux-pro-max to generate a design system for the product (one line: what it
 does, who it's for), then convert it into a `DESIGN.md` in Google's DESIGN.md format at the root.
-Delete the generator's intermediate folder once `DESIGN.md` holds everything.
+Its `MASTER.md` and page files are input to this step, never a row in Sources: delete the generator's
+intermediate folder once `DESIGN.md` holds everything.
 
 **C. From the project's designs.** Read [sources.md](sources.md) and follow sections 1–4: settle the
 way (token file, code, live tool over MCP, link or files), record the source, read it, write a

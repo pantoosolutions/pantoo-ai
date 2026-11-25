@@ -5,7 +5,7 @@ import { detectMachine } from './machine.js';
 import { kitRoot } from './paths.js';
 import { PROJECT_FILE } from './scaffold.js';
 import { mergeSettings } from './settings.js';
-import { THIRD_PARTY, TOOLS, defaultRun, hasSkills, heldRow, installTool, pinOf, readHolds, skillState, skillsRoot } from './third-party.js';
+import { THIRD_PARTY, TOOLS, defaultRun, hasSkills, heldRow, installTool, pinOf, readHolds, skillsRoot, toolState } from './third-party.js';
 
 export const GUARDS = ['block', 'warn', 'off'];
 
@@ -118,7 +118,7 @@ export function applyKit(t, saved, { options, mp, force, machine }) {
 // The recorded pin matches, and the files agree: nothing doctor would send to `update`.
 function current(t, saved, id) {
   if (saved.thirdParty?.[id]?.pin !== pinOf(id) || !TOOLS[id]) return false;
-  return hasSkills(t.scope, t, id) && skillState(id, { root: skillsRoot(t.scope, t) }).state !== 'older';
+  return hasSkills(t.scope, t, id) && !toolState(id, { root: skillsRoot(t.scope, t) }).older;
 }
 
 // Installs a design tool, unless this machine holds it.

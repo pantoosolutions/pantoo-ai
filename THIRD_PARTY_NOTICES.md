@@ -25,4 +25,4 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 ```
 
 Installed, not copied (see `third-party.json`): impeccable (Apache-2.0), design-taste-frontend (MIT),
-ui-ux-pro-max (MIT).
+ui-ux-pro-max (MIT), six of Emil Kowalski's skills from `emilkowalski/skills` (MIT).

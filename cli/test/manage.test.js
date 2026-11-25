@@ -49,6 +49,9 @@ const front = (version) => ({ 'SKILL.md': `---\nname: impeccable\nversion: ${ver
 const json = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const taste = THIRD_PARTY.tools.taste;
 const uiux = THIRD_PARTY.tools['ui-ux-pro-max'];
+const emil = THIRD_PARTY.tools.emil;
+// Every skill of a tool on disk with the same stand-in text: not the pin, but not older either.
+const lay = (root, tool, text = 'x') => { for (const n of tool.skills) skill(root, n, { 'SKILL.md': text }); };
 const ids = Object.keys(OPTIONS);
 const quiet = async (fn) => { const log = console.log; console.log = () => {}; try { return await fn(); } finally { console.log = log; } };
 
@@ -184,9 +187,9 @@ test('update reinstalls only out-of-date pins and stale companions', () => {
   fs.writeFileSync(path.join(dir, 'skills-lock.json'), JSON.stringify({ version: 1, skills: { brand: { ref: uiux.sha }, slides: { ref: 'old' } } }));
   fs.mkdirSync(path.join(dir, '.claude/skills/brand'), { recursive: true });
   fs.mkdirSync(path.join(dir, '.claude/skills/slides'), { recursive: true });
-  // The other two tools are on disk, so only taste's old saved pin sends it back to the installer.
+  // The other tools are on disk, so only taste's old saved pin sends it back to the installer.
   skill(path.join(prof.claudeDir, 'skills'), 'impeccable', front(impeccable.npm.split('@')[1]));
-  for (const t of [taste, uiux]) skill(path.join(prof.claudeDir, 'skills'), t.skills[0], { 'SKILL.md': 'x' });
+  for (const t of [taste, uiux, emil]) lay(path.join(prof.claudeDir, 'skills'), t);
   const run = fake();
   update({ prof, dir, run });
   const installs = run.calls.filter((c) => c.cmd === 'npx').map((c) => c.args.join(' '));
@@ -204,6 +207,7 @@ test('update reinstalls a tool whose files are older than the saved pin says, or
   const root = path.join(prof.claudeDir, 'skills');
   skill(root, 'impeccable', front('4.8.0'));
   skill(root, taste.skills[0], { 'SKILL.md': 'newer or edited' });
+  lay(root, emil);
   const run = fake();
   update({ prof, dir, run });
   const installs = run.calls.filter((c) => c.cmd === 'npx').map((c) => c.args.join(' '));
@@ -224,13 +228,60 @@ test('folderHash ignores line endings in text, and files made by running the ski
 });
 
 test('every skills tool and companion has a hash for each pin the kit knows', () => {
-  for (const tool of [taste, uiux]) {
-    for (const entry of [tool, ...tool.previous]) {
+  for (const tool of [taste, uiux, emil]) {
+    for (const entry of [tool, ...(tool.previous ?? [])]) {
       assert.deepEqual(Object.keys(entry.hashes).filter((n) => tool.skills.includes(n) || tool.companions?.includes(n)).sort(),
         [...tool.skills, ...(tool.companions ?? [])].sort(), entry.tag);
       for (const h of Object.values(entry.hashes)) assert.match(h, /^[0-9a-f]{64}$/);
     }
   }
+});
+
+test('a tool with several skills installs them all at the pin, globally at user scope', () => {
+  const run = fake();
+  installTool('emil', { scope: 'user', prof: profile(tmp()), run });
+  const args = run.calls[0].args.join(' ');
+  assert.ok(args.includes(`${emil.repo}#${emil.sha}`) && args.includes(' -g'));
+  assert.deepEqual(run.calls[0].args.filter((a, i, all) => all[i - 1] === '--skill'), emil.skills);
+});
+
+test('doctor, update and holds read every skill of a tool, not just the first', (t) => {
+  for (const n of emil.skills) pinned(t, emil, n, { 'SKILL.md': `kit ${n}\n` });
+  const earlier = { tag: 'main@0000000', sha: '0'.repeat(40), hashes: {} };
+  for (const n of emil.skills) earlier.hashes[n] = folderHash(skill(tmp(), n, { 'SKILL.md': `earlier ${n}\n` }));
+  emil.previous = [earlier];
+  t.after(() => { delete emil.previous; });
+  const atPin = (root) => { for (const n of emil.skills) skill(root, n, { 'SKILL.md': `kit ${n}\n` }); return root; };
+
+  // doctor: all at the pin is ok; one edited by hand is newer, and the row names it.
+  const root = atPin(tmp());
+  assert.deepEqual(toolChecks(root, { emil: { pin: emil.sha } })[0].level, 'ok');
+  const last = emil.skills.at(-1);
+  skill(root, last, { 'SKILL.md': 'edited by hand\n' });
+  const edited = toolChecks(root, { emil: { pin: emil.sha } })[0];
+  assert.equal(edited.level, 'warn');
+  assert.match(edited.note, new RegExp(`^${last}: newer`));
+
+  // update: one skill at the earlier pin sends the tool back to the installer; all at the pin doesn't.
+  const prof = profile(tmp());
+  const dir = repo();
+  install({ prof, scope: 'user', dir, options: [], packs: ['design'], run: fake() });
+  const skills = path.join(prof.claudeDir, 'skills');
+  skill(skills, 'impeccable', front(impeccable.npm.split('@')[1]));
+  for (const x of [taste, uiux]) lay(skills, x);
+  atPin(skills);
+  const emilInstalls = () => { const run = fake(); update({ prof, dir, run }); return run.calls.filter((c) => c.cmd === 'npx' && c.args.includes(`${emil.repo}#${emil.sha}`)).length; };
+  assert.equal(emilInstalls(), 0);
+  skill(skills, last, { 'SKILL.md': `earlier ${last}\n` });
+  assert.equal(emilInstalls(), 1);
+
+  // holds: refused while the skills are at different pins; at one pin, the hold survives update.
+  assert.throws(() => setHolds({ hold: ['emil'] }, { dir, prof }), /no version this kit knows/);
+  for (const n of emil.skills) skill(skills, n, { 'SKILL.md': `earlier ${n}\n` });
+  setHolds({ hold: ['emil'] }, { dir, prof });
+  assert.deepEqual(json(prof.configFile).holds, { emil: earlier.sha });
+  assert.equal(emilInstalls(), 0);
+  assert.equal(toolChecks(skills, { emil: { pin: emil.sha } }, { emil: earlier.sha })[0].note, `held at ${earlier.tag} (kit pins ${emil.tag})`);
 });
 
 test('doctor reads the installed skill: CRLF copy ok, hand update newer, earlier pin older, held', (t) => {
@@ -508,7 +559,7 @@ test('a hold that can\'t be honoured is refused, and nothing is written', () => 
   assert.ok(!fs.existsSync(prof.configFile));
   install({ prof, scope: 'user', dir, options: [], packs: [], run: fake() });
   const before = fs.readFileSync(prof.configFile, 'utf8');
-  assert.throws(() => setHolds({ hold: ['nope'] }, ctx), /Unknown tool "nope". Valid: impeccable, taste/);
+  assert.throws(() => setHolds({ hold: ['nope'] }, ctx), /Unknown tool "nope". Valid: impeccable, taste, ui-ux-pro-max, emil/);
   assert.throws(() => setHolds({ release: ['constructor'] }, ctx), /Unknown tool/);
   assert.throws(() => setHolds({ hold: ['taste'], release: ['taste'] }, ctx), /at once/);
   assert.throws(() => setHolds({ hold: ['taste'] }, ctx), /isn't installed/);

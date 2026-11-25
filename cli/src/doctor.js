@@ -13,7 +13,7 @@ import { secretChecks } from './secrets.js';
 import { sourceChecks } from './sources.js';
 import { git } from './spawn.js';
 import { PLACEHOLDER } from '../../plugin/skills/start-project/scripts/state.mjs';
-import { COMPANIONS, TOOLS, designMissing, readHolds, skillState, stateRow } from './third-party.js';
+import { COMPANIONS, TOOLS, designMissing, readHolds, skillState, stateRow, toolState } from './third-party.js';
 
 const V1_SKILLS = ['architect', 'remember', 'recover', 'review', 'imprint', 'find-docs'];
 const KIT_AGENTS = fs.readdirSync(path.join(kitRoot, 'plugin', 'agents')).map((f) => f.replace(/\.md$/, ''));
@@ -75,7 +75,11 @@ export function toolChecks(root, recorded = {}, holds = {}) {
     const what = `design tool ${id}`;
     const missing = TOOLS[id].skills.filter((s) => !fs.existsSync(path.join(root, s)));
     if (missing.length) return { level: 'fail', what, note: `${missing.join(', ')} missing; ${restore(id, holds)}` };
-    return { what, ...stateRow(skillState(id, { root, hold: holds[id] })) };
+    const state = toolState(id, { root, hold: holds[id] });
+    const row = stateRow(state);
+    // A tool with several skills names the one that differs; ok and held cover them all.
+    const named = TOOLS[id].skills.length > 1 && !['ok', 'held'].includes(state.state);
+    return { what, ...row, note: named ? `${state.name}: ${row.note}` : row.note };
   });
 }
 

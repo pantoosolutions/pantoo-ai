@@ -11,14 +11,16 @@ import { checkUpstream } from '../src/upstream.js';
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'pantoo-up-'));
 const { impeccable, taste } = TOOLS;
 const uiux = TOOLS['ui-ux-pro-max'];
+const { emil } = TOOLS;
 const bump = (tag) => tag.replace(/\d+$/, (n) => String(Number(n) + 1));
 const refs = (...tags) => tags.map((t) => ({ ref: `refs/tags/${t}` }));
 
 // What GitHub would answer, by API path.
-const upstream = ({ impeccableTags = [impeccable.tag], tasteTags = [taste.tag], head = uiux.sha } = {}) => ({
+const upstream = ({ impeccableTags = [impeccable.tag], tasteTags = [taste.tag], head = uiux.sha, emilHead = emil.sha } = {}) => ({
   [`repos/${impeccable.repo}/git/matching-refs/tags/skill-v`]: refs(...impeccableTags),
   [`repos/${taste.repo}/git/matching-refs/tags/v`]: refs(...tasteTags),
   [`repos/${uiux.repo}/commits/HEAD`]: { sha: head },
+  [`repos/${emil.repo}/commits/HEAD`]: { sha: emilHead },
 });
 const web = (answers, seen = []) => async (url) => {
   seen.push(url);
@@ -31,7 +33,7 @@ const check = (over = {}) => checkUpstream({ prof: profile(tmp()), run: anonymou
 
 test('upstream at the pins is ok', async () => {
   const rows = await check();
-  assert.deepEqual(rows.map((r) => r.level), ['ok', 'ok', 'ok']);
+  assert.deepEqual(rows.map((r) => r.level), ['ok', 'ok', 'ok', 'ok']);
   assert.match(rows[0].note, /skill-v4.*npm installer 4\.11\.0/);
 });
 
@@ -41,7 +43,7 @@ test('a newer tag or commit is reported; older tags, pre-releases and other name
     tasteTags: ['v1.0.0', taste.tag, 'v-next', 'v9.0.0\u001b[2J'],
     head: 'b'.repeat(40),
   })) });
-  assert.deepEqual(rows.map((r) => r.level), ['warn', 'ok', 'warn']);
+  assert.deepEqual(rows.map((r) => r.level), ['warn', 'ok', 'warn', 'ok']);
   assert.ok(rows[0].note.includes(`upstream has ${bump(impeccable.tag)}`));
   assert.ok(rows[1].note.endsWith(taste.tag));
   assert.match(rows[2].note, /moved to main@bbbbbbb/);
@@ -54,20 +56,20 @@ test('a logged-in gh is used instead of anonymous HTTPS', async () => {
     return { ok: true, out: args[0] === 'api' ? JSON.stringify(answers[args[1]]) : '' };
   };
   const rows = await check({ run, fetch: () => assert.fail('fetched') });
-  assert.deepEqual(rows.map((r) => r.level), ['ok', 'ok', 'ok']);
+  assert.deepEqual(rows.map((r) => r.level), ['ok', 'ok', 'ok', 'ok']);
 });
 
 test('a failing gh falls back to HTTPS', async () => {
   const seen = [];
   const run = (cmd, args) => (cmd === 'gh' && args[0] === 'auth' ? { ok: true, out: '' } : anonymous(cmd));
   const rows = await check({ run, fetch: web(upstream(), seen) });
-  assert.equal(seen.length, 3);
-  assert.deepEqual(rows.map((r) => r.level), ['ok', 'ok', 'ok']);
+  assert.equal(seen.length, 4);
+  assert.deepEqual(rows.map((r) => r.level), ['ok', 'ok', 'ok', 'ok']);
 });
 
 test('offline says so for each tool and doesn\'t throw', async () => {
   const rows = await check({ run: () => ({ ok: false, out: '' }), fetch: async () => { throw new Error('fetch failed'); } });
-  assert.equal(rows.length, 3);
+  assert.equal(rows.length, 4);
   for (const r of rows) assert.match(r.note, /could not check upstream \(fetch failed\)/);
 });
 
