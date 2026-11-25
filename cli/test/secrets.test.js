@@ -70,3 +70,12 @@ test('a committed secret file fails', () => {
   assert.equal(row.level, 'fail');
   assert.match(row.note, /committed: rotate it, then `git rm --cached \.env\.local`/);
 });
+
+test('a secret path from the repo prints without hidden characters', () => {
+  const dir = tmp();
+  const hidden = String.fromCharCode(27);
+  record(dir, [{ name: 'k', file: `~/a${hidden}]0;title${String.fromCharCode(0x202e)}` }]);
+  const [row] = secretChecks(dir, profile(tmp()), {});
+  assert.match(row.note, /missing: create ~\/a/);
+  assert.doesNotMatch(row.note, /[\p{Cc}\p{Cf}]/u);
+});

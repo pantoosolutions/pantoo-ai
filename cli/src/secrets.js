@@ -9,8 +9,11 @@ import { git } from './spawn.js';
 
 const NAME = /^[\w .-]{1,64}$/;
 const ENV = /^[A-Z_][A-Z0-9_]*$/;
-// Text from the file that reaches the terminal: no control characters, no escape sequences.
-export const plain = (text, max = 200) => String(text).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').slice(0, max);
+// Control and invisible format characters (escape sequences, right-to-left overrides, zero-width):
+// they can make a terminal show something other than the text.
+export const HIDDEN = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
+// Text from the file that reaches the terminal.
+export const plain = (text, max = 200) => String(text).replace(new RegExp(HIDDEN, 'gu'), ' ').slice(0, max);
 
 const inside = (base, abs) => {
   const rel = path.relative(base, abs);
@@ -67,16 +70,16 @@ export function secretChecks(dir, prof, env = process.env) {
     const what = `secret ${s.name}`;
     const committed = s.files.find((f) => f.project && git(dir, ['ls-files', '--', f.project], { cwd: prof.home }).out.trim());
     if (committed) {
-      checks.push({ level: 'fail', what, note: `${committed.written} is committed: rotate it, then \`git rm --cached ${committed.project}\` and ignore it` });
+      checks.push({ level: 'fail', what, note: `${plain(committed.written)} is committed: rotate it, then \`git rm --cached ${plain(committed.project)}\` and ignore it` });
       continue;
     }
     const fromEnv = s.env && typeof env[s.env] === 'string' && env[s.env] !== '';
     const file = s.files.find((f) => fs.statSync(f.abs, { throwIfNoEntry: false }));
     if (fromEnv || file) {
-      checks.push({ level: 'ok', what, note: fromEnv ? `env ${s.env}` : file.written });
+      checks.push({ level: 'ok', what, note: fromEnv ? `env ${s.env}` : plain(file.written) });
       continue;
     }
-    const where = [s.env && `set ${s.env}`, s.files.length && `create ${s.files.map((f) => f.written).join(' or ')}`].filter(Boolean).join(', or ');
+    const where = [s.env && `set ${s.env}`, s.files.length && `create ${s.files.map((f) => plain(f.written)).join(' or ')}`].filter(Boolean).join(', or ');
     checks.push({ level: 'warn', what, note: `missing: ${where}${s.note ? `; ${s.note}` : ''}` });
   }
   return checks;

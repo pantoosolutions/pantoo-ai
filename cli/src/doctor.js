@@ -8,7 +8,7 @@ import { OPTIONS, PLUGIN, agentFiles } from './install.js';
 import { OLD_MACHINE_RULES, detectMachine, findBrowser, realSystem, writeMachineRule } from './machine.js';
 import { MANIFEST, PROJECT_FILE, detect, templatesDir } from './scaffold.js';
 import { setupChecks } from './setup-checks.js';
-import { secretChecks } from './secrets.js';
+import { secretChecks, plain } from './secrets.js';
 import { sourceChecks } from './sources.js';
 import { git } from './spawn.js';
 import { PLACEHOLDER } from '../../plugin/skills/start-project/scripts/state.mjs';
@@ -244,7 +244,10 @@ export function crlfFiles(dir) {
   if (!r.ok) return null;
   const found = { checkout: [], index: [] };
   for (const entry of r.out.split('\0')) {
-    const [info, file] = entry.split('\t');
+    // `<info>\t<path>`; the path itself can hold a tab.
+    const tab = entry.indexOf('\t');
+    if (tab === -1) continue;
+    const [info, file] = [entry.slice(0, tab), entry.slice(tab + 1)];
     if (!/\sw\/crlf\s/.test(info) || info.includes('eol=crlf')) continue;
     found[info.startsWith('i/lf ') ? 'checkout' : 'index'].push(file);
   }
@@ -280,12 +283,20 @@ export function repairLineEndings(dir, { cwd } = {}) {
   const status = git(root, ['status', '--porcelain'], { cwd });
   if (!status.ok || status.out.trim()) return { status: 'skipped', note: 'the tree has changes; commit or stash them, then run `npx pantoo-ai doctor --fix line-endings`' };
   if (!git(root, ['ls-files', '--error-unmatch', '--', '.gitattributes'], { cwd }).ok) return { status: 'skipped', note: 'no committed .gitattributes; add one with `* text=auto eol=lf` and commit it' };
-  const files = crlfFiles(root)?.checkout ?? [];
+  const files = (crlfFiles(root)?.checkout ?? []).filter((f) => fs.lstatSync(path.join(root, f), { throwIfNoEntry: false })?.isFile());
   if (!files.length) return { status: 'unchanged', note: 'no CRLF working files' };
   // With a clean tree git sees these files as unchanged, so a plain checkout rewrites nothing.
-  for (const f of files) fs.rmSync(path.join(root, f), { force: true });
+  // So each one is removed first, and kept here until git has written it again.
+  const before = files.map((f) => {
+    const abs = path.join(root, f);
+    return { abs, buf: fs.readFileSync(abs), mode: fs.statSync(abs).mode };
+  });
+  for (const { abs } of before) fs.rmSync(abs, { force: true });
   const out = git(root, ['checkout', '--pathspec-from-file=-', '--pathspec-file-nul'], { cwd, input: files.join('\0') });
-  if (!out.ok) return { status: 'failed', note: `git checkout failed; \`git checkout -- .\` restores the files (${out.err.trim().split('\n')[0]})` };
+  if (!out.ok) {
+    for (const { abs, buf, mode } of before) if (!fs.existsSync(abs)) fs.writeFileSync(abs, buf, { mode });
+    return { status: 'failed', note: `git checkout failed; no file was lost (${out.err.trim().split('\n')[0]})` };
+  }
   const left = crlfFiles(root)?.checkout ?? [];
   if (left.length) return { status: 'failed', note: `still CRLF: ${some(left)}` };
   return { status: 'repaired', note: `${files.length} file(s) now LF` };
@@ -315,7 +326,7 @@ export function projectChecks(dir, prof) {
     return checks;
   }
   const project = found.project;
-  add('ok', `project ${project.name}`, `${project.kind}${project.local ? ', local only' : ''}`);
+  add('ok', `project ${plain(project.name)}`, `${plain(project.kind)}${project.local ? ', local only' : ''}`);
 
   if (project.layout < MANIFEST.layout) {
     add('warn', 'context layout', `v${project.layout}, the kit writes v${MANIFEST.layout}; run /pantoo:start-project to migrate`);
@@ -345,7 +356,7 @@ export function projectChecks(dir, prof) {
   checks.push(...toolChecks(root, found.init?.thirdParty, holds));
   for (const c of project.companions ?? []) {
     // The names come from the project's file, so only the kit's own are looked up.
-    if (!COMPANIONS.includes(c)) add('warn', `companion ${c}`, 'not a companion this kit knows');
+    if (!COMPANIONS.includes(c)) add('warn', `companion ${plain(c, 80)}`, 'not a companion this kit knows');
     else if (!fs.existsSync(path.join(root, c))) add('fail', `companion ${c}`, `missing; ${restore('ui-ux-pro-max', holds)}`);
     else checks.push({ what: `companion ${c}`, ...stateRow(skillState('ui-ux-pro-max', { name: c, root, hold: holds['ui-ux-pro-max'] })) });
   }

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { backup, lf, readJson, stamp, writeFile, writeJson } from './files.js';
 import { repairLineEndings } from './doctor.js';
 import { MANIFEST, PROJECT_FILE, excludeKitPaths, excludeLocal } from './scaffold.js';
-import { plain, validSecrets } from './secrets.js';
+import { HIDDEN, plain, validSecrets } from './secrets.js';
 import { git as gitRaw, spawn } from './spawn.js';
 import { VERSION } from './self-update.js';
 
@@ -201,7 +201,7 @@ export function filterPermissions(permissions, { root, home }) {
   const local = [root, home].filter(Boolean).flatMap((p) => [p, p.replace(/\\/g, '/')]);
   for (const list of PERMISSION_LISTS) {
     for (const rule of Array.isArray(permissions?.[list]) ? permissions[list] : []) {
-      if (typeof rule !== 'string' || !rule) continue;
+      if (typeof rule !== 'string' || !rule || HIDDEN.test(rule)) continue;
       if (looksSecret(rule, local)) secret++;
       else if (local.some((p) => rule.toLowerCase().includes(p.toLowerCase()))) left.push(rule);
       else if (!keep[list].includes(rule)) keep[list].push(rule);
@@ -330,7 +330,7 @@ const HEX = /^[0-9a-f]{64}$/;
 const MEMORY_NAME = /^[\w.-]+\.md$/;
 
 export function safeRel(rel) {
-  if (!isString(rel) || !rel || rel.includes('\0') || rel.includes('\\') || rel.startsWith('/') || /^[A-Za-z]:/.test(rel)) return false;
+  if (!isString(rel) || !rel || HIDDEN.test(rel) || rel.includes('\\') || rel.startsWith('/') || /^[A-Za-z]:/.test(rel)) return false;
   const parts = rel.split('/');
   if (parts.some((p) => p === '' || p === '.' || p === '..' || p.toLowerCase() === '.git')) return false;
   return isCarried(rel);
@@ -385,6 +385,8 @@ export function readMoveFolder(folder) {
     if (p.file !== 'permissions.json' || !isString(p.sha256) || !HEX.test(p.sha256)) bad('permissions must name permissions.json and its sha256');
     let parsed;
     try { parsed = JSON.parse(check('permissions.json', p.sha256).toString('utf8')); } catch { bad('permissions.json is not valid JSON'); }
+    const hidden = PERMISSION_LISTS.some((l) => Array.isArray(parsed?.[l]) && parsed[l].some((r) => isString(r) && HIDDEN.test(r)));
+    if (hidden) bad('permissions.json has a rule with hidden characters, which could disguise what it allows');
     // Filtered again here: the folder may not come from this kit's export.
     const { keep } = filterPermissions(parsed, { root: '', home: '' });
     permissions = { keep, left: Array.isArray(p.left) ? p.left.filter(isString).map((r) => plain(r, 300)) : [] };
@@ -394,10 +396,16 @@ export function readMoveFolder(folder) {
   return { folder: dir, git: m.git, project: m.project, from: m.from, files, memory, permissions, secrets, mcpLocal };
 }
 
-// A write target inside `base`: no folder on the way is a symlink out, and the file isn't one.
+// A write target inside `base`: no folder below `base` is a symlink, and the file isn't one. A
+// clone can bring `context -> .git`, which stays inside the repo and reaches git's own config.
 function safeTarget(base, abs) {
-  const realBase = fs.realpathSync(base);
-  if (!within(realBase, realish(path.dirname(abs)))) return 'its folder resolves outside';
+  const rel = path.relative(base, path.dirname(abs));
+  if (!within(base, path.dirname(abs))) return 'its folder is outside';
+  let at = base;
+  for (const part of rel ? rel.split(path.sep) : []) {
+    at = path.join(at, part);
+    if (fs.lstatSync(at, { throwIfNoEntry: false })?.isSymbolicLink()) return 'a folder on the way is a symlink';
+  }
   const st = fs.lstatSync(abs, { throwIfNoEntry: false });
   if (st && !st.isFile()) return 'it is a symlink or a folder here';
   return null;
@@ -537,7 +545,7 @@ async function grant(g, root, permissions, { allow, ask, pending }) {
   const open = numbered.filter((r) => !r.there);
   let chosen = parseAllow(allow, rules.length);
   if (!allow && ask && open.length) {
-    const picked = await ask.multiselect('Permissions from the old machine to add here (none preselected)', open.map((r) => ({ value: r.n, label: `${r.list}  ${r.rule}` })));
+    const picked = await ask.multiselect('Permissions from the old machine to add here (none preselected)', open.map((r) => ({ value: r.n, label: `${r.list}  ${plain(r.rule, Infinity)}` })));
     chosen = new Set(picked ?? []);
   }
   const add = open.filter((r) => chosen.has(r.n));
@@ -557,7 +565,7 @@ async function grant(g, root, permissions, { allow, ask, pending }) {
   const waiting = open.filter((r) => !chosen.has(r.n));
   if (waiting.length) {
     lines.push('Permissions not added (each needs your yes):');
-    for (const r of waiting) lines.push(`    ${r.n}. ${r.list}  ${plain(r.rule, 300)}`);
+    for (const r of waiting) lines.push(`    ${r.n}. ${r.list}  ${plain(r.rule, Infinity)}`);
     pending.push(`--allow <numbers, e.g. ${waiting.slice(0, 2).map((r) => r.n).join(',')}> or --allow all`);
   }
   const already = numbered.filter((r) => r.there).length;

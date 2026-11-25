@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { doctor, repairLineEndings } from '../src/doctor.js';
-import { CLASSES, MoveStop, exportMove, filterPermissions, importMove, memoryDir, normalRemote, readMoveFolder, slug, sshHostname } from '../src/move.js';
+import { CLASSES, MoveStop, exportMove, filterPermissions, importMove, memoryDir, normalRemote, readMoveFolder, safeRel, slug, sshHostname } from '../src/move.js';
 import { profile } from '../src/paths.js';
 import { MANIFEST, excludeKitPaths } from '../src/scaffold.js';
 
@@ -394,4 +394,71 @@ test('filterPermissions: token-like rules are dropped, long plain paths are not'
   assert.equal(r.secret, 2);
   assert.deepEqual(r.keep, { allow: ['Read(/usr/local/lib/node_modules/some-package/dist/**)', 'Read(~/.config/tool/**)'], deny: [], ask: [] });
   assert.deepEqual(r.left, ['Read(/Users/someone/Documents/Projects/app/**)']);
+});
+
+test('import never writes through a symlinked folder, into .git or anywhere else', async () => {
+  const f = fixture({ local: true });
+  put(path.join(f.a, '.impeccable', 'config'), '[core]\n\tfsmonitor = echo planted\n');
+  exp(f);
+  fs.symlinkSync(path.join(f.b, '.git'), path.join(f.b, '.impeccable'), 'junction');
+  const before = read(path.join(f.b, '.git', 'config'));
+  const out = await imp(f, { take: ['.impeccable/config'] });
+  assert.equal(read(path.join(f.b, '.git', 'config')), before);
+  assert.ok(out.lines.some((l) => /\.impeccable\/config: skipped.*symlink/.test(l)), out.lines.join('\n'));
+});
+
+// A clone whose working files are CRLF while git holds LF.
+function crlfClone(files) {
+  const base = tmp();
+  const src = path.join(base, 'src');
+  fs.mkdirSync(src);
+  gitIn(src, 'init', '-q', '-b', 'main');
+  gitIn(src, 'config', 'core.autocrlf', 'false');
+  put(path.join(src, '.gitattributes'), '* text=auto\n');
+  for (const [name, text] of Object.entries(files)) put(path.join(src, name), text);
+  gitIn(src, 'add', '-A');
+  gitIn(src, 'commit', '-qm', 'start');
+  const dir = path.join(base, 'clone');
+  gitIn(base, 'clone', '-q', '-c', 'core.autocrlf=true', src, dir);
+  gitIn(src, 'rm', '-q', '.gitattributes');
+  put(path.join(src, '.gitattributes'), '* text=auto eol=lf\n');
+  gitIn(src, 'add', '-A');
+  gitIn(src, 'commit', '-qm', 'attrs');
+  gitIn(dir, 'pull', '-q');
+  return dir;
+}
+
+test('line-ending repair reads a name with a tab whole', { skip: process.platform === 'win32' }, () => {
+  const dir = crlfClone({ '.env\tx.txt': 'a\n' });
+  put(path.join(dir, '.env'), 'KEY=mine\n');
+  fs.appendFileSync(path.join(dir, '.git', 'info', 'exclude'), '\n.env\n');
+  assert.equal(repairLineEndings(dir).status, 'repaired');
+  assert.equal(read(path.join(dir, '.env')), 'KEY=mine\n');
+  assert.equal(read(path.join(dir, '.env\tx.txt')), 'a\n');
+});
+
+test('line-ending repair loses no file when git checkout fails', () => {
+  const dir = crlfClone({ 'a.txt': 'one\ntwo\n' });
+  const before = read(path.join(dir, 'a.txt'));
+  assert.match(before, /\r\n/);
+  put(path.join(dir, '.git', 'index.lock'), '');
+  const r = repairLineEndings(dir);
+  assert.equal(r.status, 'failed', r.note);
+  assert.equal(read(path.join(dir, 'a.txt')), before);
+});
+
+test('a permission rule or path with hidden characters never reaches the consent prompt', () => {
+  const esc = `Bash(rm -rf /)${String.fromCharCode(27)}[2K`;
+  const bidi = `Bash(ls ${String.fromCharCode(0x202e)}x)`;
+  assert.deepEqual(filterPermissions({ allow: [esc, bidi, 'Bash(npm test)'] }, { root: '', home: '' }).keep.allow, ['Bash(npm test)']);
+  assert.equal(safeRel('context/a\nb'), false);
+
+  const f = fixture();
+  exp(f);
+  const text = JSON.stringify({ allow: [esc] });
+  fs.writeFileSync(path.join(f.to, 'permissions.json'), text);
+  const mj = JSON.parse(read(path.join(f.to, 'move.json')));
+  mj.permissions = { file: 'permissions.json', sha256: crypto.createHash('sha256').update(text).digest('hex'), left: [] };
+  fs.writeFileSync(path.join(f.to, 'move.json'), JSON.stringify(mj));
+  assert.throws(() => readMoveFolder(f.to), /hidden characters/);
 });

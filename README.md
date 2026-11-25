@@ -118,8 +118,9 @@ missing and the command that fixes it.
   changes, `doctor` flags the project and `/pantoo:start-project` migrates it.
 - **Check for newer design tools:** `npx pantoo-ai update --check` compares each pin with upstream and
   changes nothing.
-- **Keep a tool at its installed version** on one machine: `npx pantoo-ai update --hold taste`, and
-  `--release taste` to move it to the kit's pin again. Tools: `impeccable`, `taste`, `ui-ux-pro-max`,
+- **Keep a tool at its installed version** on one machine: `npx pantoo-ai@latest update --hold taste`, and
+  `npx pantoo-ai@latest update --release taste` to move it to the kit's pin again. `@latest` matters: an
+  older copy of the CLI doesn't know `--hold`. Tools: `impeccable`, `taste`, `ui-ux-pro-max`,
   `emil`.
 - **A setting you changed on purpose:** `npx pantoo-ai doctor --accept <key>` (`env`, `modelSettings`
   or `attribution`) shows it as ok until the kit's value for that key changes.
