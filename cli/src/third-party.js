@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from './spawn.js';
-import { readJson, writeJson } from './files.js';
+import { hash, lf, readIfExists, readJson, writeJson } from './files.js';
 import { kitRoot } from './paths.js';
 
 export const THIRD_PARTY = readJson(path.join(kitRoot, 'third-party.json'), { skillsCli: '', tools: {}, packs: {} });
@@ -15,6 +15,93 @@ const PROJECT_FILE = '.pantoo.json';
 // What a tool is pinned to: the npm spec, or the commit sha for skills-CLI tools.
 export const pinOf = (id) => (TOOLS[id].via === 'npm' ? TOOLS[id].npm : TOOLS[id].sha);
 
+// Files that appear inside a skill folder by using it; they aren't part of what was installed.
+const NOT_SKILL = /^(__pycache__|node_modules|\.DS_Store|Thumbs\.db|desktop\.ini|.*\.pyc)$/;
+
+function walk(root, rel = '') {
+  return fs.readdirSync(path.join(root, rel), { withFileTypes: true }).filter((e) => !NOT_SKILL.test(e.name)).flatMap((e) => {
+    const next = rel ? `${rel}/${e.name}` : e.name;
+    return e.isDirectory() ? walk(root, next) : e.isFile() ? [next] : [];
+  });
+}
+
+// One hash for a skill folder, the same on every OS: `/` paths in a fixed order, and CRLF read as LF
+// in text files. A file with a NUL byte is binary and is hashed as it is.
+export function folderHash(dir) {
+  const all = crypto.createHash('sha256');
+  for (const rel of walk(dir).sort()) {
+    const bytes = fs.readFileSync(path.join(dir, rel));
+    // latin1 maps every byte to one character, so nothing is lost on the way to `hash`.
+    const one = bytes.includes(0) ? crypto.createHash('sha256').update(bytes).digest('hex') : hash(bytes.toString('latin1'));
+    all.update(`${rel}\0${one}\n`);
+  }
+  return all.digest('hex');
+}
+
+const skillVersion = (dir) => lf(readIfExists(path.join(dir, 'SKILL.md')) ?? '')
+  .match(/^---\n([\s\S]*?)\n---/)?.[1].match(/^version:\s*["']?([\w.+-]+)/m)?.[1] ?? null;
+
+const compareVersions = (a, b) => a.localeCompare(b, 'en', { numeric: true });
+const npmVersion = (spec) => spec.slice(spec.lastIndexOf('@') + 1);
+
+// A readable name for a pin: the kit's tag, an earlier kit's tag, or a short sha.
+function pinLabel(id, pin) {
+  const tool = TOOLS[id];
+  if (tool.via === 'npm') return npmVersion(pin);
+  return [tool, ...(tool.previous ?? [])].find((p) => p.sha === pin)?.tag ?? pin.slice(0, 7);
+}
+
+// Reads one skill folder: is(pin) says whether it holds that pin, `older` whether it's behind the
+// kit's, and `found` which version it is, when that can be told.
+// With a `version:` in SKILL.md (impeccable) the versions are compared. Otherwise the folder's hash
+// is compared with the pin's, and only a hash an earlier kit pinned counts as older.
+function readSkill(id, name, dir) {
+  const tool = TOOLS[id];
+  if (tool.via === 'npm') {
+    const version = skillVersion(dir);
+    const want = npmVersion(tool.npm);
+    return {
+      is: (pin) => version === npmVersion(pin),
+      older: version !== null && compareVersions(version, want) < 0,
+      found: version,
+    };
+  }
+  const actual = folderHash(dir);
+  const earlier = (tool.previous ?? []).find((p) => p.hashes?.[name] === actual);
+  return {
+    is: (pin) => [tool, ...(tool.previous ?? [])].find((p) => p.sha === pin)?.hashes?.[name] === actual,
+    older: Boolean(earlier),
+    found: earlier?.tag ?? null,
+  };
+}
+
+// Compares an installed skill with the kit's pin, from the files on disk:
+// 'ok', 'older', 'newer' (anything the kit never pinned) or 'held' (D30).
+// A hold on a tool must match what's installed. A companion at the kit's pin is ok even on a machine
+// that holds ui-ux-pro-max, since companions are committed with the project.
+export function skillState(id, { name = TOOLS[id].skills[0], root, hold }) {
+  const skill = readSkill(id, name, path.join(root, name));
+  const pin = pinOf(id);
+  const kit = pinLabel(id, pin);
+  const companion = !TOOLS[id].skills.includes(name);
+  if (companion && skill.is(pin)) return { state: 'ok', kit };
+  if (hold && skill.is(hold)) return { state: 'held', kit, held: pinLabel(id, hold) };
+  if (hold && !companion) return { state: 'changed', kit, held: pinLabel(id, hold), found: skill.is(pin) ? kit : skill.found };
+  if (skill.is(pin)) return { state: 'ok', kit };
+  return { state: skill.older ? 'older' : 'newer', kit, found: skill.found };
+}
+
+// The doctor row for a state.
+export function stateRow({ state, kit, held, found }) {
+  if (state === 'ok') return { level: 'ok', note: '' };
+  if (state === 'held') return { level: 'ok', note: `held at ${held} (kit pins ${kit})` };
+  if (state === 'changed') return { level: 'warn', note: `held at ${held}, but the installed skill ${found ? `is ${found}` : 'differs from it'}` };
+  if (state === 'older') return { level: 'warn', note: `older: ${found}, the kit pins ${kit}; run \`npx pantoo-ai update\`` };
+  return { level: 'warn', note: found ? `newer than the kit's pin: ${found}, the kit pins ${kit}` : `newer than the kit's pin ${kit}, or changed by hand` };
+}
+
+export const skillsRoot = (scope, ctx) => path.join(scope === 'project' ? ctx.dir : ctx.prof.home, '.claude', 'skills');
+
 // Runs a command; `run` is injectable so tests never touch the network.
 export function defaultRun(cmd, args, { cwd, env, input } = {}) {
   const r = spawn(cmd, args, { cwd, env, input });
@@ -23,7 +110,6 @@ export function defaultRun(cmd, args, { cwd, env, input } = {}) {
 }
 
 const lastLine = (out) => out.split('\n').filter(Boolean).pop() ?? '';
-const skillsDir = (scope, { dir, prof }) => path.join(scope === 'project' ? dir : prof.home, '.claude', 'skills');
 const cwdOf = (scope, { dir, prof }) => (scope === 'project' ? dir : prof.home);
 
 function record(scope, { dir, prof }, id, pin) {
@@ -120,7 +206,7 @@ export function installedRefs(dir) {
 
 // Pack tools whose skill folders are missing at both user and project scope.
 export function designMissing({ dir, prof }) {
-  return ['impeccable', 'taste'].filter((id) => !TOOLS[id].skills.every((s) => [skillsDir('user', { prof }), skillsDir('project', { dir })].some((d) => fs.existsSync(path.join(d, s)))));
+  return ['impeccable', 'taste'].filter((id) => !TOOLS[id].skills.every((s) => [skillsRoot('user', { prof }), skillsRoot('project', { dir })].some((d) => fs.existsSync(path.join(d, s)))));
 }
 
-export const hasSkills = (scope, ctx, id) => TOOLS[id].skills.every((s) => fs.existsSync(path.join(skillsDir(scope, ctx), s)));
+export const hasSkills = (scope, ctx, id) => TOOLS[id].skills.every((s) => fs.existsSync(path.join(skillsRoot(scope, ctx), s)));

@@ -5,7 +5,7 @@ import { detectMachine } from './machine.js';
 import { kitRoot } from './paths.js';
 import { PROJECT_FILE } from './scaffold.js';
 import { mergeSettings } from './settings.js';
-import { THIRD_PARTY, defaultRun, installTool, pinOf } from './third-party.js';
+import { THIRD_PARTY, TOOLS, defaultRun, hasSkills, installTool, pinOf, skillState, skillsRoot } from './third-party.js';
 
 export const GUARDS = ['block', 'warn', 'off'];
 
@@ -115,12 +115,18 @@ export function applyKit(t, saved, { options, mp, force, machine }) {
   return results;
 }
 
-// Installs, or re-pins, the design pack tools whose recorded pin is missing or differs.
+// The recorded pin matches, and the files agree: nothing doctor would send to `update`.
+function current(t, saved, id) {
+  if (saved.thirdParty?.[id]?.pin !== pinOf(id) || !TOOLS[id]) return false;
+  return hasSkills(t.scope, t, id) && skillState(id, { root: skillsRoot(t.scope, t) }).state !== 'older';
+}
+
+// Installs, or re-pins, the design pack tools whose recorded pin differs or whose files are missing or older.
 export function syncTools(t, saved, run, { all = false } = {}) {
   const wanted = saved.packs?.includes('design') ? THIRD_PARTY.packs.design : Object.keys(saved.thirdParty ?? {});
   const results = [];
   for (const id of wanted) {
-    if (!all && saved.thirdParty?.[id]?.pin === pinOf(id)) continue;
+    if (!all && current(t, saved, id)) continue;
     results.push(...installTool(id, { scope: t.scope, dir: t.dir, prof: t.prof, run }));
   }
   return results;

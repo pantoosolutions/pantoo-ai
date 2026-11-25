@@ -6,7 +6,7 @@ import { unmergeSettings } from './settings.js';
 import { OPTIONS, PLUGIN, applyKit, claude, clearSaved, configureGuard, loadSaved, saveSaved, syncTools, target } from './install.js';
 import { MACHINE_HEADER, MACHINE_RULE } from './machine.js';
 import { PROJECT_FILE, hideCompanions } from './scaffold.js';
-import { COMPANIONS, THIRD_PARTY, TOOLS, defaultRun, installCompanions, installTool, installedRefs, removeTool } from './third-party.js';
+import { COMPANIONS, THIRD_PARTY, TOOLS, defaultRun, installCompanions, installTool, installedRefs, removeTool, skillState, skillsRoot } from './third-party.js';
 
 const lastLine = (out) => out.split('\n').filter(Boolean).pop() ?? '';
 const row = (what, r, ok, note = '') => ({ what, status: r.ok ? ok : 'FAILED', note: r.ok ? note : lastLine(r.out) });
@@ -38,7 +38,9 @@ export function update({ prof, dir, force, run = defaultRun }) {
   if (companions.length) {
     const refs = installedRefs(dir);
     const pin = TOOLS['ui-ux-pro-max'].sha;
-    const stale = companions.filter((n) => refs[n] !== pin || !fs.existsSync(path.join(dir, '.claude', 'skills', n)));
+    const root = skillsRoot('project', { dir });
+    const stale = companions.filter((n) => refs[n] !== pin || !fs.existsSync(path.join(root, n))
+      || (COMPANIONS.includes(n) && skillState('ui-ux-pro-max', { name: n, root }).state === 'older'));
     results.push(...(stale.length ? installCompanions(stale, { dir, prof, run }) : [{ what: 'companions', status: 'up to date' }]));
   }
   return results;

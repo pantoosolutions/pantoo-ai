@@ -10,7 +10,7 @@ import { OLD_MACHINE_RULES, detectMachine, writeMachineRule } from './machine.js
 import { MANIFEST, PROJECT_FILE, detect, templatesDir } from './scaffold.js';
 import { sourceChecks } from './sources.js';
 import { PLACEHOLDER } from '../../plugin/skills/start-project/scripts/state.mjs';
-import { COMPANIONS, TOOLS, designMissing, installedRefs, pinOf } from './third-party.js';
+import { COMPANIONS, TOOLS, designMissing, skillState, stateRow } from './third-party.js';
 
 const V1_SKILLS = ['architect', 'remember', 'recover', 'review', 'imprint', 'find-docs'];
 const KIT_AGENTS = fs.readdirSync(path.join(kitRoot, 'plugin', 'agents')).map((f) => f.replace(/\.md$/, ''));
@@ -42,16 +42,19 @@ export function guardMode(settings) {
   return entry?.options?.commit_guard ?? entry?.userConfig?.commit_guard ?? entry?.commit_guard ?? null;
 }
 
+// One row per recorded tool, from what its folder holds. The saved pin only says the kit put it there.
+export function toolChecks(root, recorded = {}, holds = {}) {
+  return Object.keys(recorded).filter((id) => TOOLS[id]).map((id) => {
+    const what = `design tool ${id}`;
+    const missing = TOOLS[id].skills.filter((s) => !fs.existsSync(path.join(root, s)));
+    if (missing.length) return { level: 'fail', what, note: `${missing.join(', ')} missing; run \`npx pantoo-ai update\`` };
+    return { what, ...stateRow(skillState(id, { root, hold: holds[id] })) };
+  });
+}
+
 export function thirdPartyChecks(prof, config) {
-  const checks = [];
+  const checks = toolChecks(path.join(prof.claudeDir, 'skills'), config.thirdParty, config.holds);
   const add = (level, what, note = '') => checks.push({ level, what, note });
-  for (const [id, rec] of Object.entries(config.thirdParty ?? {})) {
-    const tool = TOOLS[id];
-    if (!tool) continue;
-    const missing = tool.skills.filter((s) => !fs.existsSync(path.join(prof.claudeDir, 'skills', s)));
-    if (missing.length) add('fail', `design tool ${id}`, `${missing.join(', ')} missing; run \`npx pantoo-ai update\``);
-    else add(rec.pin === pinOf(id) ? 'ok' : 'warn', `design tool ${id}`, rec.pin === pinOf(id) ? '' : 'older pin; run update');
-  }
   const global = COMPANIONS.filter((c) => fs.existsSync(path.join(prof.claudeDir, 'skills', c)));
   if (global.length) add('warn', 'companions installed globally', `${global.join(', ')} installed globally; companions are per project now (D15)`);
   return checks;
@@ -200,11 +203,14 @@ export function projectChecks(dir, prof) {
     add(v < KIT_RULES ? 'warn' : 'ok', 'security rules', v < KIT_RULES ? `v${v}, the kit has v${KIT_RULES}; run /pantoo:start-project to update them` : `v${v}`);
   }
 
-  const refs = installedRefs(dir);
-  const pin = TOOLS['ui-ux-pro-max'].sha;
+  const root = path.join(dir, '.claude', 'skills');
+  const holds = readJson(prof.configFile, null)?.holds ?? {};
+  checks.push(...toolChecks(root, found.init?.thirdParty, holds));
   for (const c of project.companions ?? []) {
-    if (!fs.existsSync(path.join(dir, '.claude', 'skills', c))) add('fail', `companion ${c}`, 'missing; run `npx pantoo-ai update`');
-    else add(refs[c] === pin ? 'ok' : 'warn', `companion ${c}`, refs[c] === pin ? '' : 'older or unknown pin; run update');
+    // The names come from the project's file, so only the kit's own are looked up.
+    if (!COMPANIONS.includes(c)) add('warn', `companion ${c}`, 'not a companion this kit knows');
+    else if (!fs.existsSync(path.join(root, c))) add('fail', `companion ${c}`, 'missing; run `npx pantoo-ai update`');
+    else checks.push({ what: `companion ${c}`, ...stateRow(skillState('ui-ux-pro-max', { name: c, root, hold: holds['ui-ux-pro-max'] })) });
   }
   if (project.ui) {
     const missing = designMissing({ dir, prof });

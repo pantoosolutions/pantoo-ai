@@ -7,12 +7,12 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { detectMachine, renderMachine } from '../src/machine.js';
-import { projectChecks, rulesVersion, thirdPartyChecks, guardMode } from '../src/doctor.js';
+import { projectChecks, rulesVersion, thirdPartyChecks, toolChecks, guardMode } from '../src/doctor.js';
 import { install, OPTIONS } from '../src/install.js';
 import { main } from '../src/index.js';
 import { add, remove, update } from '../src/manage.js';
 import { profile } from '../src/paths.js';
-import { THIRD_PARTY, installCompanions, installTool, installedRefs, removeTool } from '../src/third-party.js';
+import { THIRD_PARTY, folderHash, installCompanions, installTool, installedRefs, removeTool, skillState } from '../src/third-party.js';
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'pantoo-mg-'));
 const repo = () => { const d = tmp(); spawnSync('git', ['init', '-q', d]); return d; };
@@ -31,6 +31,21 @@ const fake = ({ bundle = BUNDLE } = {}) => {
   run.calls = calls;
   return run;
 };
+// A skill folder with these files. The real pins are too big to ship with the tests, so `pinned`
+// makes a stand-in folder the kit's pin (or an earlier one) for one test.
+const skill = (root, name, files) => {
+  for (const [rel, text] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(root, name, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, name, rel), text);
+  }
+  return path.join(root, name);
+};
+const pinned = (t, entry, name, files) => {
+  const was = entry.hashes[name];
+  entry.hashes[name] = folderHash(skill(tmp(), name, files));
+  t.after(() => { entry.hashes[name] = was; });
+};
+const front = (version) => ({ 'SKILL.md': `---\nname: impeccable\nversion: ${version}\n---\nbody\n` });
 const json = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const taste = THIRD_PARTY.tools.taste;
 const uiux = THIRD_PARTY.tools['ui-ux-pro-max'];
@@ -169,6 +184,9 @@ test('update reinstalls only out-of-date pins and stale companions', () => {
   fs.writeFileSync(path.join(dir, 'skills-lock.json'), JSON.stringify({ version: 1, skills: { brand: { ref: uiux.sha }, slides: { ref: 'old' } } }));
   fs.mkdirSync(path.join(dir, '.claude/skills/brand'), { recursive: true });
   fs.mkdirSync(path.join(dir, '.claude/skills/slides'), { recursive: true });
+  // The other two tools are on disk, so only taste's old saved pin sends it back to the installer.
+  skill(path.join(prof.claudeDir, 'skills'), 'impeccable', front(impeccable.npm.split('@')[1]));
+  for (const t of [taste, uiux]) skill(path.join(prof.claudeDir, 'skills'), t.skills[0], { 'SKILL.md': 'x' });
   const run = fake();
   update({ prof, dir, run });
   const installs = run.calls.filter((c) => c.cmd === 'npx').map((c) => c.args.join(' '));
@@ -177,6 +195,99 @@ test('update reinstalls only out-of-date pins and stale companions', () => {
   assert.ok(installs[1].includes('--skill slides') && !installs[1].includes('--skill brand'));
   assert.ok(run.calls.some((c) => c.args.join(' ') === 'plugin update pantoo@pantoo-ai --scope user'));
   assert.deepEqual(installedRefs(dir), { brand: uiux.sha, slides: 'old' });
+});
+
+test('update reinstalls a tool whose files are older than the saved pin says, or are gone', () => {
+  const prof = profile(tmp());
+  const dir = repo();
+  install({ prof, scope: 'user', dir, options: [], packs: ['design'], run: fake() });
+  const root = path.join(prof.claudeDir, 'skills');
+  skill(root, 'impeccable', front('4.8.0'));
+  skill(root, taste.skills[0], { 'SKILL.md': 'newer or edited' });
+  const run = fake();
+  update({ prof, dir, run });
+  const installs = run.calls.filter((c) => c.cmd === 'npx').map((c) => c.args.join(' '));
+  assert.equal(installs.length, 2);
+  assert.ok(installs[0].includes(impeccable.npm));
+  assert.ok(installs[1].includes(uiux.sha));
+});
+
+test('folderHash ignores line endings in text, and files made by running the skill', () => {
+  const files = { 'SKILL.md': 'a\nb\n', 'scripts/run.py': 'print(1)\n' };
+  const base = folderHash(skill(tmp(), 's', files));
+  const crlf = Object.fromEntries(Object.entries(files).map(([k, v]) => [k, v.replace(/\n/g, '\r\n')]));
+  assert.equal(folderHash(skill(tmp(), 's', { ...crlf, 'scripts/__pycache__/run.cpython-315.pyc': 'x', '.DS_Store': 'x' })), base);
+  assert.notEqual(folderHash(skill(tmp(), 's', { ...files, 'extra.md': '' })), base);
+  assert.notEqual(folderHash(skill(tmp(), 's', { ...files, 'SKILL.md': 'a\nc\n' })), base);
+  const bin = (text) => folderHash(skill(tmp(), 's', { 'a.png': text }));
+  assert.notEqual(bin('\0\r\n'), bin('\0\n'));
+});
+
+test('every skills tool and companion has a hash for each pin the kit knows', () => {
+  for (const tool of [taste, uiux]) {
+    for (const entry of [tool, ...tool.previous]) {
+      assert.deepEqual(Object.keys(entry.hashes).filter((n) => tool.skills.includes(n) || tool.companions?.includes(n)).sort(),
+        [...tool.skills, ...(tool.companions ?? [])].sort(), entry.tag);
+      for (const h of Object.values(entry.hashes)) assert.match(h, /^[0-9a-f]{64}$/);
+    }
+  }
+});
+
+test('doctor reads the installed skill: CRLF copy ok, hand update newer, earlier pin older, held', (t) => {
+  const name = taste.skills[0];
+  pinned(t, taste, name, { 'SKILL.md': 'kit\n' });
+  pinned(t, taste.previous[0], name, { 'SKILL.md': 'earlier\n' });
+  const was = taste.previous[0];
+  const row = (text, holds) => {
+    const root = tmp();
+    skill(root, name, { 'SKILL.md': text });
+    // The saved pin says the kit's, whatever is on disk.
+    return toolChecks(root, { taste: { pin: taste.sha } }, holds)[0];
+  };
+  assert.deepEqual([row('kit\r\n').level, row('kit\r\n').note], ['ok', '']);
+  assert.equal(row('updated by hand\n').level, 'warn');
+  assert.match(row('updated by hand\n').note, new RegExp(`newer.*${taste.tag}`));
+  assert.equal(row('earlier\n').level, 'warn');
+  assert.match(row('earlier\n').note, new RegExp(`older: ${was.tag}.*update`));
+  const held = row('earlier\n', { taste: was.sha });
+  assert.deepEqual([held.level, held.note], ['ok', `held at ${was.tag} (kit pins ${taste.tag})`]);
+  const broken = row('kit\n', { taste: was.sha });
+  assert.equal(broken.level, 'warn');
+  assert.match(broken.note, new RegExp(`held at ${was.tag}, but the installed skill is ${taste.tag}`));
+});
+
+test('doctor compares impeccable by the version in SKILL.md', () => {
+  const [, major, minor] = impeccable.npm.match(/@(\d+)\.(\d+)/).map(Number);
+  const state = (version, hold) => {
+    const root = tmp();
+    skill(root, 'impeccable', front(version));
+    return skillState('impeccable', { root, hold }).state;
+  };
+  assert.equal(state(impeccable.npm.split('@')[1]), 'ok');
+  assert.equal(state(`${major}.${minor - 1}.9`), 'older');
+  assert.equal(state(`${major}.${minor + 1}.0`), 'newer');
+  assert.equal(state('4.8.0', 'impeccable@4.8.0'), 'held');
+  assert.equal(state('4.9.0', 'impeccable@4.8.0'), 'changed');
+});
+
+test('doctor checks companions by their files, and a hold on ui-ux-pro-max covers them', (t) => {
+  pinned(t, uiux, 'brand', { 'SKILL.md': 'kit\n' });
+  pinned(t, uiux.previous[0], 'brand', { 'SKILL.md': 'earlier\n' });
+  const dir = tmp();
+  const prof = profile(tmp());
+  fs.writeFileSync(path.join(dir, '.pantoo.json'), JSON.stringify({ layout: 2, name: 'x', kind: 'web-app', companions: ['brand', '../../..'] }));
+  // No lock file at all: the folder is what counts.
+  const level = (text, holds) => {
+    skill(path.join(dir, '.claude/skills'), 'brand', { 'SKILL.md': text });
+    fs.mkdirSync(path.dirname(prof.configFile), { recursive: true });
+    fs.writeFileSync(prof.configFile, JSON.stringify({ holds }));
+    return projectChecks(dir, prof).find((c) => c.what === 'companion brand');
+  };
+  assert.equal(level('kit\n').level, 'ok');
+  assert.match(level('earlier\n').note, /^older/);
+  assert.match(level('earlier\n', { 'ui-ux-pro-max': uiux.previous[0].sha }).note, /^held at v2\.15\.0/);
+  assert.equal(level('kit\n', { 'ui-ux-pro-max': uiux.previous[0].sha }).level, 'ok');
+  assert.match(projectChecks(dir, prof).find((c) => c.what === 'companion ../../..').note, /not a companion/);
 });
 
 test('lock v1 (`ref`) and lock v2 (`commit`) give the same refs', () => {
