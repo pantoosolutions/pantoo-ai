@@ -1,10 +1,10 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { backup, lf, readJson, stamp, writeFile, writeJson } from './files.js';
+import { backup, excludeLocal, globEscape, lf, readJson, stamp, writeFile, writeJson } from './files.js';
 import { repairLineEndings } from './doctor.js';
-import { MANIFEST, PROJECT_FILE, excludeKitPaths, excludeLocal } from './scaffold.js';
-import { HIDDEN, plain, validSecrets } from './secrets.js';
+import { MANIFEST, PROJECT_FILE, excludeKitPaths } from './scaffold.js';
+import { HIDDEN, declaredSecretPaths, plain, validSecrets } from './secrets.js';
 import { git as gitRaw, spawn } from './spawn.js';
 import { VERSION } from './self-update.js';
 
@@ -21,6 +21,13 @@ export const CLASSES = {
 const NOT_CARRIED = [/^\.impeccable\/bin\//, /^\.impeccable\/live\//, /^\.impeccable\/config\.local\.json$/];
 // Files the OS drops in folders (Finder, Explorer, macOS on FAT drives): never project data.
 const OS_JUNK = /(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini|\._[^/]*)$/i;
+// Names that usually hold a key. impeccable keeps its sign-in in ~/.impeccable; credentials.json
+// is here for an IMPECCABLE_HOME pointed into the project. A backup counts as its original.
+const SECRET_NAME = /(^|\/)(\.env[^/]*(\/|$)|[^/]*\.(pem|key)$|credentials\.json$)/i;
+export const maySecret = (rel, declared = []) => {
+  const name = rel.replace(/\.bak-[^/]*$/, '').toLowerCase();
+  return SECRET_NAME.test(name) || declared.some((d) => name === d.toLowerCase() || name.startsWith(`${d.toLowerCase()}/`));
+};
 export const CAPS = { files: 200, size: 5 * 1024 * 1024, total: 20 * 1024 * 1024 };
 const PERMISSION_LISTS = ['allow', 'deny', 'ask'];
 const SECRET_RULE = /bearer\s|ghp_|gho_|github_pat_|sk-[a-z0-9]|xox[abp]-|AKIA[0-9A-Z]{16}/i;
@@ -157,9 +164,8 @@ function scanProjects(claudeDir, root) {
 // As Claude Code does: settings.local.json is the repo's, not yours, when git tracks it (or
 // `.claude` itself) or `.claude` is a symlink. When git can't say, it counts as the repo's.
 function repoSupplied(g, root) {
-  try {
-    if (fs.lstatSync(path.join(root, '.claude')).isSymbolicLink()) return true;
-  } catch { return false; } // no .claude folder
+  // No .claude folder here still counts when git tracks it: the file may only be deleted.
+  if (fs.lstatSync(path.join(root, '.claude'), { throwIfNoEntry: false })?.isSymbolicLink()) return true;
   const tracked = g(root, ['ls-files', '-z']);
   // Compared without case: macOS and Windows open `.Claude/…` by either name.
   return !tracked.ok || tracked.out.split('\0').some((f) => ['.claude', SETTINGS_LOCAL].includes(f.toLowerCase()));
@@ -270,7 +276,14 @@ export function exportMove({ prof, dir, to, env = process.env, now = new Date() 
   if (within(fs.realpathSync(root), realish(target))) stop(`--to ${target} is inside the repo; pick a folder outside it.`);
   if (fs.existsSync(target) && (!fs.statSync(target).isDirectory() || fs.readdirSync(target).length)) stop(`${target} exists and isn't an empty folder.`);
 
-  const files = carried(g, root);
+  const declared = declaredSecretPaths(project, { root, home: prof.home });
+  const ignored = carried(g, root);
+  const files = ignored.filter((f) => !maySecret(f.rel, declared));
+  const held = ignored.filter((f) => maySecret(f.rel, declared));
+  if (held.length) {
+    lines.push(`! ${held.length} file(s) left out, as they may hold a secret; set them up on the new machine yourself:`);
+    for (const f of held) lines.push(`    ${plain(f.rel)}`);
+  }
   const mem = memoryDir(prof, root, { env });
   const notes = memoryFiles(mem.dir);
   checkCaps([...files.map((f) => ({ ...f, label: f.rel })), ...notes.map((m) => ({ ...m, label: `memory/${m.name}` }))]);
@@ -411,15 +424,8 @@ function safeTarget(base, abs) {
   return null;
 }
 
-// A backup inside the repo holds private state under a name no ignore rule may cover: hide it.
-function backupHidden(g, root, file) {
-  const bak = backup(file);
-  if (!g(root, ['check-ignore', '-q', '--', posix(path.relative(root, bak))]).ok) excludeLocal(root, [`/${posix(path.relative(root, file))}.bak-*`]);
-  return bak;
-}
-
 // Puts one carried file in place: written, left alone, replaced (with a backup) or kept as yours.
-async function place({ abs, buf, token, take, ask, base, keep = backup }) {
+async function place({ abs, buf, token, take, ask, base }) {
   const unsafe = safeTarget(base, abs);
   if (unsafe) return { status: 'skipped', note: unsafe };
   if (!fs.existsSync(abs)) {
@@ -429,7 +435,7 @@ async function place({ abs, buf, token, take, ask, base, keep = backup }) {
   if (lf(fs.readFileSync(abs, 'utf8')) === lf(buf.toString('utf8'))) return { status: 'same' };
   const yes = take.has('all') || take.has(token) || (ask ? await ask.confirm(`${token} differs from the copy here. Replace yours (a backup is kept)?`) : false);
   if (!yes) return { status: 'kept', note: `differs; \`--take ${token}\` replaces yours` };
-  const bak = keep(abs);
+  const bak = backup(abs);
   writeFile(abs, buf);
   return { status: 'replaced', note: `backup ${path.basename(bak)}` };
 }
@@ -474,10 +480,10 @@ export async function importMove({ prof, dir, folder, allow, take = [], ask = nu
   const takes = new Set(take);
   for (const f of m.files) {
     const abs = path.join(root, ...f.path.split('/'));
-    const r = await place({ abs, buf: f.buf, token: f.path, take: takes, ask, base: root, keep: (file) => backupHidden(g, root, file) });
+    const r = await place({ abs, buf: f.buf, token: f.path, take: takes, ask, base: root });
     if (r.status === 'kept') pending.push(`--take ${f.path}`);
     if (['added', 'replaced'].includes(r.status) && !g(root, ['check-ignore', '-q', '--', f.path]).ok && !g(root, ['ls-files', '--', f.path]).out.trim()) {
-      excludeLocal(root, [`/${f.path}`]);
+      excludeLocal(root, [`/${globEscape(f.path)}`]);
       r.note = `${r.note ? `${r.note}; ` : ''}hidden in .git/info/exclude, as it was ignored on the old machine`;
     }
     lines.push(`${r.status === 'kept' || r.status === 'skipped' ? '!' : '✓'} ${f.path}: ${r.status}${r.note ? `  (${r.note})` : ''}`);
@@ -544,7 +550,10 @@ async function grant(g, root, permissions, { allow, ask, pending }) {
   const numbered = rules.map((r, i) => ({ ...r, n: i + 1, there: has(r) }));
   const open = numbered.filter((r) => !r.there);
   let chosen = parseAllow(allow, rules.length);
-  if (!allow && ask && open.length) {
+  // A file the repo supplies is shared: a rule written there could be committed for the whole team.
+  const shared = open.length > 0 && repoSupplied(g, root);
+  if (shared) chosen = new Set();
+  if (!shared && !allow && ask && open.length) {
     const picked = await ask.multiselect('Permissions from the old machine to add here (none preselected)', open.map((r) => ({ value: r.n, label: `${r.list}  ${plain(r.rule, Infinity)}` })));
     chosen = new Set(picked ?? []);
   }
@@ -554,7 +563,7 @@ async function grant(g, root, permissions, { allow, ask, pending }) {
     if (unsafe) {
       lines.push(`! ${SETTINGS_LOCAL}: skipped (${unsafe})`);
     } else {
-      if (fs.existsSync(file)) backupHidden(g, root, file);
+      if (fs.existsSync(file)) backup(file);
       const next = { ...settings, permissions: { ...settings.permissions } };
       for (const r of add) next.permissions[r.list] = [...(Array.isArray(next.permissions[r.list]) ? next.permissions[r.list] : []), r.rule];
       writeJson(file, next);
@@ -564,9 +573,11 @@ async function grant(g, root, permissions, { allow, ask, pending }) {
   }
   const waiting = open.filter((r) => !chosen.has(r.n));
   if (waiting.length) {
-    lines.push('Permissions not added (each needs your yes):');
+    lines.push(shared
+      ? `! ${SETTINGS_LOCAL} is tracked by git or sits behind a symlink, so it isn't changed. Add what you want to your own settings:`
+      : 'Permissions not added (each needs your yes):');
     for (const r of waiting) lines.push(`    ${r.n}. ${r.list}  ${plain(r.rule, Infinity)}`);
-    pending.push(`--allow <numbers, e.g. ${waiting.slice(0, 2).map((r) => r.n).join(',')}> or --allow all`);
+    if (!shared) pending.push(`--allow <numbers, e.g. ${waiting.slice(0, 2).map((r) => r.n).join(',')}> or --allow all`);
   }
   const already = numbered.filter((r) => r.there).length;
   if (already) lines.push(`✓ ${already} permission rule(s) already here`);

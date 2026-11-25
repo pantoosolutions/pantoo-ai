@@ -9,6 +9,7 @@ import { doctor, repairLineEndings } from '../src/doctor.js';
 import { CLASSES, MoveStop, exportMove, filterPermissions, importMove, memoryDir, normalRemote, readMoveFolder, safeRel, slug, sshHostname } from '../src/move.js';
 import { profile } from '../src/paths.js';
 import { MANIFEST, excludeKitPaths } from '../src/scaffold.js';
+import { mergeSettings } from '../src/settings.js';
 
 const tmp = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'pantoo-mv-')));
 const put = (file, text) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, text); };
@@ -461,4 +462,60 @@ test('a permission rule or path with hidden characters never reaches the consent
   mj.permissions = { file: 'permissions.json', sha256: crypto.createHash('sha256').update(text).digest('hex'), left: [] };
   fs.writeFileSync(path.join(f.to, 'move.json'), JSON.stringify(mj));
   assert.throws(() => readMoveFolder(f.to), /hidden characters/);
+});
+
+test('a project-scope settings backup never shows up in git, even under an odd folder name', () => {
+  const repo = tmp();
+  gitIn(repo, 'init', '-q', '-b', 'main');
+  const file = path.join(repo, 'apps', '[web]', '.claude', 'settings.json');
+  put(file, '{}\n');
+  gitIn(repo, 'add', '-A');
+  gitIn(repo, 'commit', '-qm', 'start');
+  const r = mergeSettings(file, { env: { A: '1' } });
+  assert.ok(fs.existsSync(r.backupFile));
+  assert.equal(gitIn(repo, 'status', '--porcelain', '-uall').trim(), 'M apps/[web]/.claude/settings.json');
+});
+
+test('export leaves out files that may hold a secret, and says which', () => {
+  const f = fixture();
+  put(path.join(f.a, '.pantoo.json'), JSON.stringify({ layout: 2, name: 'demo', secrets: [{ name: 'bad/name', file: 'context/token.json' }, { name: 'folder', file: 'context/keys' }] }));
+  const secret = ['context/.env', 'context/.env.local', 'context/old/.env/prod.txt', '.impeccable/server.pem', '.impeccable/Private.KEY', '.impeccable/account/ab/credentials.json', 'context/token.json', 'context/token.json.bak-2026', 'context/keys/a.txt'];
+  const fine = ['context/environment.md', 'context/token.json.md', 'context/keys-notes.md'];
+  for (const rel of [...secret, ...fine]) put(path.join(f.a, rel), 'x\n');
+  appendExclude(f.a, secret.concat(fine).map((s) => `/${s}`).join('\n'));
+  const r = exp(f);
+  const sent = r.manifest.files.map((x) => x.path);
+  for (const rel of fine) assert.ok(sent.includes(rel), rel);
+  for (const rel of secret) {
+    assert.ok(!sent.includes(rel), rel);
+    assert.ok(!fs.existsSync(path.join(f.to, 'files', rel)), rel);
+    assert.ok(r.lines.some((l) => l.trim() === rel), rel);
+  }
+});
+
+test('import never adds a permission to a settings file the repo tracks', async () => {
+  const f = fixture();
+  exp(f);
+  const file = path.join(f.b, '.claude', 'settings.local.json');
+  put(file, '{}\n');
+  gitIn(f.b, 'add', '-f', '.claude/settings.local.json');
+  for (const gone of [false, true]) {
+    if (gone) fs.rmSync(path.dirname(file), { recursive: true });
+    const out = await imp(f, { allow: 'all', ask: { confirm: async () => true, multiselect: async () => assert.fail('asked') } });
+    assert.equal(fs.existsSync(file) ? read(file) : null, gone ? null : '{}\n');
+    assert.ok(out.lines.some((l) => /tracked by git/.test(l)));
+    assert.ok(out.lines.some((l) => /allow  Bash\(npm test\)/.test(l)));
+    assert.ok(!out.pending.some((p) => p.startsWith('--allow')));
+  }
+});
+
+test('a carried file name with wildcards hides only itself', async () => {
+  const f = fixture();
+  put(path.join(f.a, 'context', '[ab].md'), 'x\n');
+  appendExclude(f.a, '/context/\\[ab].md');
+  exp(f);
+  await imp(f);
+  assert.match(read(path.join(f.b, '.git', 'info', 'exclude')), /^\/context\/\\\[ab\]\.md$/m);
+  put(path.join(f.b, 'context', 'a.md'), 'team file\n');
+  assert.equal(gitIn(f.b, 'status', '--porcelain', '-uall').trim(), '?? context/a.md');
 });

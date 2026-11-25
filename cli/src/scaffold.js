@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { readIfExists, readJson, writeFile, writeJson } from './files.js';
+import { appendLines, excludeLocal, readJson, writeFile, writeJson } from './files.js';
 import { kitRoot } from './paths.js';
 import { mergeSettings } from './settings.js';
 import { git as runGit } from './spawn.js';
@@ -92,21 +92,7 @@ function render(rel, choices) {
   return text;
 }
 
-function appendLines(file, header, lines) {
-  const current = readIfExists(file) ?? '';
-  const missing = lines.filter((l) => !current.split('\n').includes(l));
-  if (!missing.length) return false;
-  const sep = current && !current.endsWith('\n') ? '\n' : '';
-  writeFile(file, `${current}${sep}${current ? '\n' : ''}${header}\n${missing.join('\n')}\n`);
-  return true;
-}
-
-// --local: adds paths to .git/info/exclude. False when nothing was added or `dir` isn't a repo.
-export function excludeLocal(dir, lines) {
-  const rel = git(dir, ['rev-parse', '--git-path', 'info/exclude']);
-  if (!rel) return false;
-  return appendLines(path.resolve(dir, rel), '# pantoo-ai: local only, never commit', lines);
-}
+export { excludeLocal };
 
 // --local: every kit path (MANIFEST.kitPaths) that git doesn't track goes in .git/info/exclude.
 // Used by `new --local` and `move import`. Returns true when lines were added.

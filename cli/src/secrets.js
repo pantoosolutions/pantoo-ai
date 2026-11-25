@@ -33,6 +33,17 @@ function resolveFile(value, { root, home }) {
   return inside(root, abs) ? { written: value, abs, project: path.relative(root, abs).split(path.sep).join('/') } : null;
 }
 
+// Every in-project path any entry names, even an entry that is otherwise ignored: `move` leaves
+// these behind, so a typo in a name must not let the file travel.
+export function declaredSecretPaths(record, { root, home }) {
+  const list = Array.isArray(record?.secrets) ? record.secrets : [];
+  return list.flatMap((e) => (e?.file === undefined ? [] : [e.file].flat())).flatMap((f) => {
+    const r = resolveFile(f, { root, home });
+    if (!r || !inside(root, r.abs)) return [];
+    return [path.relative(root, r.abs).split(path.sep).join('/')];
+  });
+}
+
 // Returns { secrets: [{ name, env, files, note }], warns: [check rows] }.
 export function validSecrets(record, { root, home }) {
   const secrets = [];

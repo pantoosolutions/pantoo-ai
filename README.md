@@ -142,7 +142,12 @@ npx pantoo-ai move import <folder>
 ```
 
 `import` first checks that the clone has the same remote and branch and includes the exported commit.
-It asks before adding a permission rule or replacing a file that differs from yours. Secrets are never copied.
+It asks before adding a permission rule or replacing a file that differs from yours, and it adds no
+rule to a `.claude/settings.local.json` that git tracks.
+
+`export` leaves out the files `.pantoo.json` lists under `secrets`, and any `.env*`, `*.pem`, `*.key`
+or `credentials.json`, and prints what it left. It doesn't read what's inside the other files, so a
+key typed into a note travels with it.
 
 ## Commands
 
