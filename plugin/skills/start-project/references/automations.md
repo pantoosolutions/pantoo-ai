@@ -6,8 +6,11 @@ tools and approvals, and `verify-feature` runs its test inputs. Without it, an a
 one tool at a time and nobody can say what it's allowed to do.
 
 When the file is missing, copy `${CLAUDE_PLUGIN_ROOT}/templates/context/automations.md` and replace
-`{{PROJECT_NAME}}` if present. `AGENTS.md` (`CLAUDE.local.md` when local) → Where things are then
-gets a row: `context/automations.md` | Each workflow and agent: steps, tools, approvals, tests.
+`{{PROJECT_NAME}}` if present.
+
+Whether or not it was missing (the scaffold may have just copied it), `AGENTS.md`
+(`CLAUDE.local.md` when local) → Where things are needs this row; add it if it isn't there:
+`context/automations.md` | Each workflow and agent: steps, tools, approvals, tests.
 
 ## The list
 

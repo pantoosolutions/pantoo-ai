@@ -57,20 +57,20 @@ Do what `npx pantoo-ai new` does, from `${CLAUDE_PLUGIN_ROOT}/templates/`:
    `backend` or `automation`; `automation` for that kind. **Never overwrite a file that exists.**
 3. In the copies: replace `{{PROJECT_NAME}}`. In `CLAUDE.md` / `CLAUDE.local.md`, delete the
    `<!-- UI projects only … -->` line, and for `backend` and `automation` everything after it too.
-4. Not local: add `context/session.md` to `.gitignore`, and merge `extraKnownMarketplaces` +
-   `enabledPlugins` for `pantoo@pantoo-ai` into `.claude/settings.json` (keep every existing key).
+4. Not local: add `context/session.md` to `.gitignore`, and merge `templates/claude-settings.json`
+   into `.claude/settings.json` (keep every existing key). Write refused → show that JSON to add.
    Local: append each path in `manifest.json` → `kitPaths` to
    `$(git rev-parse --git-path info/exclude)`, with a leading `/` on the `root` ones, leaving out
    any path that is tracked.
 5. Write `.pantoo.json`: `{ "layout": 2, "name", "kind", "ui", "existing", "multiSurface",
-   "local", "shared", "companions": [] }`.
+   "local", "shared", "companions": [] }`. `shared`: `true` only if step 4 wrote the settings.
 
 ## 3. Run the intake
 
 Read the mode's reference file and follow it. These rules hold in every mode:
 
 - **Write only** `context/`, `AGENTS.md`, `CLAUDE.md` (`CLAUDE.local.md` when local),
-  `.pantoo.json`, and what the developer approves: permissions (Exceptions, below) and skill
+  `.pantoo.json`, step 2's other files, and approved permissions (Exceptions, below) and skill
   installs ([catalog.md](references/catalog.md)). Code is read-only; fixes go to `known-issues.md`.
 - **Local mode:** never edit a tracked file. The team's `CLAUDE.md`, `AGENTS.md` and
   `.claude/rules/` are confirmed conventions: cite them from `context/`, don't copy or re-ask them.
