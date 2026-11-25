@@ -4,9 +4,11 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 // One git call: run from the home folder, so Windows never finds a git.exe that a clone put in the
-// repo. Pathspecs are literal. Returns { ok, out, err }.
+// repo. Pathspecs are literal. `check-ignore` takes plain paths and refuses the flag (it then fails
+// as if nothing were ignored). Returns { ok, out, err }.
 export function git(dir, args, { cwd = os.homedir(), input } = {}) {
-  const r = spawnSync('git', ['--literal-pathspecs', '-C', path.resolve(dir), ...args], { cwd: fs.existsSync(cwd) ? cwd : os.homedir(), input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  const literal = args[0] === 'check-ignore' ? [] : ['--literal-pathspecs'];
+  const r = spawnSync('git', [...literal, '-C', path.resolve(dir), ...args], { cwd: fs.existsSync(cwd) ? cwd : os.homedir(), input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   return { ok: r.status === 0, out: r.status === 0 ? r.stdout : '', err: r.stderr ?? String(r.error ?? '') };
 }
 

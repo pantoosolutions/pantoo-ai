@@ -41,6 +41,10 @@ Fixed:
 - A `.pantoo.json` project with leftover v1 files is now moved by `start-project`, and `doctor` names
   the files.
 - `start-project` writes the repo's plugin settings and the automations index row reliably.
+- `doctor` no longer reports `context/session.md` as not gitignored when it is. Every ignore check
+  the CLI makes works again, so `move` and backups no longer add exclude lines they don't need.
+- `--home` also sets `USERPROFILE`, so on Windows the `skills` CLI and impeccable's installer use the
+  test profile instead of the real one.
 
 Security:
 
