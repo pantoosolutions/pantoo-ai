@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.9.0
+
+- `npx pantoo-ai move export` and `move import <folder>` carry a project's ignored kit files, Claude
+  memory and permission rules to a new clone. Export leaves out secret files (those `.pantoo.json`
+  names, `.env*`, `*.pem`, `*.key`, `credentials.json`); it doesn't scan what's inside other files.
+  Import checks the remote, branch and commit, and adds a permission only after your yes, never to a
+  settings file git tracks.
+- New project kinds: `mobile` and `automation`, with a `context/automations.md` template.
+- The intake recommends skills and plugins for the stack from a catalog, reads each one at the commit
+  it will install, and installs only after your yes, at project scope.
+- The design pack adds six of Emil Kowalski's motion skills.
+- Design tool pins: impeccable 4.11.0 (bundle checked by sha256), taste 2.5.1, ui-ux-pro-max
+  `main@8db3633`, `skills` CLI 1.9.0. `update` moves to them. taste 2.5.1 is for website pages only,
+  has no dials and adds a `Stop` hook; app screens go by `DESIGN.md` and impeccable. `DESIGN.md`
+  overrides every taste value. To keep a tool you have, run
+  `npx pantoo-ai@latest update --hold <tool>` before updating.
+- The official `shadcn` skill, from the catalog, replaces the `ui-styling` companion in new projects.
+  Existing installs keep it; `doctor` suggests the change.
+- `update --check` compares each pin with upstream. `--hold` and `--release` keep a tool at its
+  installed version on one machine.
+- `doctor` reads the installed skills instead of trusting the saved pin; checks `gh`, line endings,
+  Python, Playwright browsers, secrets named in `.pantoo.json` and, on Windows, long paths and shell
+  settings. `--accept <key>` keeps a setting you changed on
+  purpose, and `--fix line-endings` repairs a CRLF working copy. It now fails when an installed skill
+  needs Python and none works.
+- `new` writes `.gitattributes`. `new --local` also hides `AGENTS.md`, `CLAUDE.md`,
+  `skills-lock.json` and `.claude/` when git doesn't track them.
+- The standards template adds cross-OS and standalone-code rules, and `review-change` searches for
+  breaches. UI projects get `context/copy.md`, and changed copy is proofread. The intake asks once
+  whether a project needs a global rule relaxed.
+- The ctx7 rule and `docs-researcher` stop Git Bash on Windows rewriting library IDs.
+
+Fixed:
+
+- Companions installed by a newer `skills` CLI are no longer read as stale and reinstalled at an older
+  pin.
+- A `.pantoo.json` project with leftover v1 files is now moved by `start-project`, and `doctor` names
+  the files.
+- `start-project` writes the repo's plugin settings and the automations index row reliably.
+
+Security:
+
+- On Windows, commands the CLI starts no longer find a program planted in the current repo.
+- Every `.bak-*` copy made inside a git repo is hidden from git.
+
 ## 0.8.0
 
 First public release, on GitHub and npm.
