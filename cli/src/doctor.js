@@ -49,6 +49,8 @@ export function tasteChecks(roots, sys = realSystem()) {
   ];
 }
 
+const CLAUDE_MISSING = 'not found on PATH; install the `claude` CLI (the VS Code extension alone doesn\'t add it): https://code.claude.com/docs/en/setup';
+
 function pluginList(prof, cwd) {
   const list = spawn('claude', ['plugin', 'list', '--json'], { env: prof.env, cwd });
   if (list.error) return { error: true, plugins: [] };
@@ -183,7 +185,7 @@ function userChecks(prof, info, pythonFor) {
 
   const list = pluginList(prof);
   if (list.error) {
-    add('fail', 'claude CLI', 'not found on PATH');
+    add('fail', 'claude CLI', CLAUDE_MISSING);
   } else {
     if (list.bad) add('warn', 'plugin list', 'could not read `claude plugin list --json`');
     const found = list.plugins.find?.((p) => p.id === PLUGIN || p.name === 'pantoo');
@@ -307,7 +309,7 @@ export function projectChecks(dir, prof) {
   if (found.init?.scope === 'project') {
     const { error, plugins } = pluginList(prof, dir);
     const on = plugins.find?.((p) => (p.id === PLUGIN || p.name === 'pantoo') && p.scope === 'project');
-    add(on ? 'ok' : error ? 'warn' : 'fail', `plugin ${PLUGIN} (project)`, on ? '' : error ? 'claude CLI not found' : 'not installed for this project; run `npx pantoo-ai init --scope project`');
+    add(on ? 'ok' : error ? 'warn' : 'fail', `plugin ${PLUGIN} (project)`, on ? '' : error ? CLAUDE_MISSING : 'not installed for this project; run `npx pantoo-ai init --scope project`');
   }
   if (!found.project) {
     if (found.v1.length) add('warn', `context/ in ${dir}`, 'v1 layout; run `npx pantoo-ai new`, then /pantoo:start-project to migrate');

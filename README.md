@@ -16,9 +16,14 @@ up any project.
 
 ## Requirements
 
-- Claude Code 2.1.177 or later, signed in
-- Node.js 20 or later, and git
-- Windows: Git for Windows (Claude Code uses its Git Bash)
+- **The `claude` CLI in a terminal**, version 2.1.177 or later, signed in. The kit installs the plugin
+  by running `claude plugin`, and the VS Code extension alone doesn't put `claude` in your terminal.
+  [Install Claude Code](https://code.claude.com/docs/en/setup) and check with `claude --version`
+- [Node.js](https://nodejs.org/en/download) 20 or later, and git
+- Windows: [Git for Windows](https://git-scm.com/downloads/win) (Claude Code uses its Git Bash)
+- `curl`, to install impeccable (built into macOS and Windows 10 and later)
+- Optional: Node.js 22 and Chrome, Edge or Chromium for taste's page checker, and the
+  [GitHub CLI](https://cli.github.com) (`gh`) for pull requests. `doctor` warns when one is missing
 
 ## Install
 
@@ -33,7 +38,7 @@ npx pantoo-ai@latest init
 | Scope: `user` (every project on this machine) or `project` (this repo, shared with the team) | user |
 | Rules: model routing, ctx7 for docs, web access, no AI attribution | all on |
 | Commit guard: block, warn or off, for commits and PRs that credit an AI | block |
-| Design pack: [impeccable](https://github.com/pbakaus/impeccable), [taste](https://github.com/Leonxlnx/taste-skill), [ui-ux-pro-max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill), six of [Emil Kowalski's motion skills](https://github.com/emilkowalski/skills), installed at pinned versions | on (`--no-design` to skip) |
+| Design pack: [impeccable](https://github.com/pbakaus/impeccable), [taste](https://github.com/Leonxlnx/taste-skill), [ui-ux-pro-max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill), six of [Emil Kowalski's motion skills](https://github.com/emilkowalski/skills) (`animate`, `review-animations`, `improve-animations`, `animation-performance`, `animation-vocabulary`, `emil-design-eng`), installed at pinned versions | on (`--no-design` to skip) |
 
 It installs the plugin from this repo's marketplace, copies the rules to `~/.claude/rules/`, merges
 the settings into `~/.claude/settings.json` (a backup is kept, and no key of yours is lost), then runs
@@ -57,9 +62,13 @@ apply. It never overwrites anything. Then, in Claude Code:
 ```
 
 For a new project this runs an interview; for existing code, a survey of the code. Either way it fills
-`context/`, `AGENTS.md` and `CLAUDE.md`. It also migrates other agents' instruction files (Cursor,
-Copilot, Windsurf, Cline, a hand-written `CLAUDE.md`) after showing you the mapping. In a repo you
-can't commit to, use `npx pantoo-ai new --local`: the same files, kept out of git.
+`context/`, `AGENTS.md` and `CLAUDE.md`. Once the stack is known, it recommends skills and plugins for
+its libraries from a [short catalog](plugin/skills/start-project/references/catalog.md), taken only from
+each library's maker or from Emil Kowalski. It shows each command and its pin, installs only after your
+yes and only at project scope, and installs nothing in a local project.
+
+It also migrates other agents' instruction files (Cursor, Copilot, Windsurf, Cline, a hand-written
+`CLAUDE.md`) after showing you the mapping. In a repo you can't commit to, use `npx pantoo-ai new --local`: the same files, kept out of git.
 
 ## The loop
 
@@ -107,6 +116,32 @@ missing and the command that fixes it.
   warning.
 - **A project's context** is your content, so a newer template is never re-applied. When the layout
   changes, `doctor` flags the project and `/pantoo:start-project` migrates it.
+- **Check for newer design tools:** `npx pantoo-ai update --check` compares each pin with upstream and
+  changes nothing.
+- **Keep a tool at its installed version** on one machine: `npx pantoo-ai update --hold taste`, and
+  `--release taste` to move it to the kit's pin again. Tools: `impeccable`, `taste`, `ui-ux-pro-max`,
+  `emil`.
+- **A setting you changed on purpose:** `npx pantoo-ai doctor --accept <key>` (`env`, `modelSettings`
+  or `attribution`) shows it as ok until the kit's value for that key changes.
+
+## Moving a project to another machine
+
+A clone doesn't carry ignored context files such as `context/session.md`, the project's Claude memory
+or your permission rules. Commit and push first, then on the old machine, in the project:
+
+```bash
+npx pantoo-ai move export
+```
+
+It writes a folder under `~/pantoo-move/` (`--to <folder>` picks another place). Get that folder to
+the new machine, clone the repo there, switch to the same branch, and in the clone run:
+
+```bash
+npx pantoo-ai move import <folder>
+```
+
+`import` first checks that the clone has the same remote and branch and includes the exported commit.
+It asks before adding a permission rule or replacing a file that differs from yours. Secrets are never copied.
 
 ## Commands
 
@@ -118,7 +153,7 @@ missing and the command that fixes it.
 | `update` | Replay the saved choices with the latest kit and move the design tools' pins |
 | `doctor` | Check what's installed against what's expected, and the project in this folder |
 | `remove` | Undo `init` for a scope, from the saved record |
-| `move export` / `move import <folder>` | Carry a project's private state (ignored context files, Claude memory, permission rules) to a new clone on another machine. Never copies a secret; `doctor` lists the ones to set up |
+| `move export` / `move import <folder>` | [Move a project](#moving-a-project-to-another-machine) to another machine. `doctor` lists the secrets to set up there |
 
 `npx pantoo-ai --help` lists every flag. Each prompt has one, so the CLI also runs non-interactively.
 
