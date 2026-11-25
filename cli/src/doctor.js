@@ -36,6 +36,15 @@ export function pythonUsers(roots) {
   return ['ui-ux-pro-max', ...COMPANIONS].filter((s) => roots.some((r) => fs.existsSync(path.join(r, s))));
 }
 
+// Same as package.json `engines`.
+export const MIN_NODE = '22.20.0';
+export function nodeAtLeast(version, min) {
+  const a = version.split('.').map(Number);
+  const b = min.split('.').map(Number);
+  for (let i = 0; i < 3; i++) if ((a[i] || 0) !== b[i]) return (a[i] || 0) > b[i];
+  return true;
+}
+
 // taste's page checker needs Node 22 and a Chromium browser. Only a copy that ships the checker
 // needs them, so an older, held one doesn't.
 export function tasteChecks(roots, sys = realSystem()) {
@@ -177,8 +186,8 @@ function userChecks(prof, info, pythonFor) {
   const add = (level, what, note = '') => checks.push({ level, what, note });
   const config = readJson(prof.configFile, null);
 
-  const major = Number(process.versions.node.split('.')[0]);
-  add(major >= 20 ? 'ok' : 'fail', `node ${process.versions.node}`, major >= 20 ? '' : 'needs Node 20 or newer');
+  const nodeOk = nodeAtLeast(process.versions.node, MIN_NODE);
+  add(nodeOk ? 'ok' : 'fail', `node ${process.versions.node}`, nodeOk ? '' : `needs Node ${MIN_NODE} or newer (the pinned \`skills\` CLI needs it)`);
 
   checks.push(...machineChecks(prof, info, { pythonFor }));
 

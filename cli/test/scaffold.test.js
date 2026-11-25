@@ -27,6 +27,7 @@ test('new project: spine, UI files, settings, gitignore', () => {
   assert.equal(JSON.parse(read(dir, '.claude/settings.json')).enabledPlugins['pantoo@pantoo-ai'], true);
   assert.match(read(dir, '.gitignore'), /^context\/session\.md$/m);
   assert.match(read(dir, '.gitignore'), /^\.taste-skill\/$/m);
+  assert.match(read(dir, '.gitignore'), /^\.env\*\n!\.env\.example$/m);
   assert.equal(JSON.parse(read(dir, '.pantoo.json')).layout, 2);
   assert.match(read(dir, '.gitattributes'), /^\* text=auto eol=lf$/m);
   assert.match(read(dir, '.gitattributes'), /^\*\.png binary$/m);
@@ -85,7 +86,31 @@ test('local mode writes one exclude line per kit path, leaving tracked ones out'
   assert.deepEqual(lines, [
     '/context/', '/CLAUDE.md', '/CLAUDE.local.md', '/DESIGN.md', '/PRODUCT.md', '/.pantoo.json',
     '/skills-lock.json', '/.claude/', '/.impeccable/', '/.impeccable-live/', '.taste-skill/',
+    '.env*', '!.env.example',
   ]);
+});
+
+test('env files stay out of git, the example stays in, and a rerun adds nothing', () => {
+  const dir = tmp();
+  spawnSync('git', ['init', '-q', dir]);
+  scaffold(dir, base);
+  const once = read(dir, '.gitignore');
+  scaffold(dir, base);
+  assert.equal(read(dir, '.gitignore'), once);
+  for (const f of ['.env', '.env.local', '.env.example']) fs.writeFileSync(path.join(dir, f), 'K=1\n');
+  const ignored = (f) => spawnSync('git', ['-C', dir, 'check-ignore', '-q', f]).status === 0;
+  assert.ok(ignored('.env') && ignored('.env.local'));
+  assert.ok(!ignored('.env.example'));
+});
+
+test('doctor: Node minimum compares the full version', async () => {
+  const { nodeAtLeast, MIN_NODE } = await import('../src/doctor.js');
+  const pkg = JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+  assert.equal(pkg.engines.node, `>=${MIN_NODE}`);
+  assert.ok(nodeAtLeast('22.20.0', '22.20.0'));
+  assert.ok(nodeAtLeast('24.1.0', '22.20.0'));
+  assert.ok(!nodeAtLeast('22.19.9', '22.20.0'));
+  assert.ok(!nodeAtLeast('20.18.0', '22.20.0'));
 });
 
 // The grep is one shell command, so it carries its own copy of the list. `*.md` covers the .md paths.

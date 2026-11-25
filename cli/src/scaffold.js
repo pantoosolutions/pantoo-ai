@@ -8,6 +8,8 @@ import { git as runGit } from './spawn.js';
 export const templatesDir = path.join(kitRoot, 'plugin', 'templates');
 export const MANIFEST = readJson(path.join(templatesDir, 'manifest.json'), null);
 export const PROJECT_FILE = '.pantoo.json';
+// Security rule 2: env files stay out of git from the first commit, except the example.
+export const ENV_IGNORE = ['.env*', '!.env.example'];
 
 // Project kinds and the ui-ux-pro-max companions each one gets (PLAN.md 4b).
 export const KINDS = {
@@ -139,12 +141,14 @@ export function scaffold(dir, choices) {
   if (choices.local) {
     if (!found.isRepo) throw new Error('--local needs a git repo (it hides the files in .git/info/exclude).');
     const added = excludeKitPaths(dir);
-    results.push({ what: '.git/info/exclude', status: added ? 'updated' : 'unchanged' });
+    const secrets = excludeLocal(dir, ENV_IGNORE);
+    results.push({ what: '.git/info/exclude', status: added || secrets ? 'updated' : 'unchanged' });
   } else {
     // No leading slash on `.taste-skill/`: taste may build in a folder below the root.
     const ignored = ['context/session.md', ...(choices.ui ? ['.taste-skill/'] : [])];
     const added = appendLines(path.join(dir, '.gitignore'), '# pantoo-ai: per-person state', ignored);
-    results.push({ what: '.gitignore', status: added ? 'updated' : 'unchanged' });
+    const secrets = appendLines(path.join(dir, '.gitignore'), '# pantoo-ai: env files (security rule 2)', ENV_IGNORE);
+    results.push({ what: '.gitignore', status: added || secrets ? 'updated' : 'unchanged' });
     results.push(writeAttributes(dir, choices.existing));
   }
 

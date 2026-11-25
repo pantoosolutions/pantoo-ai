@@ -31,6 +31,8 @@
   breaches. UI projects get `context/copy.md`, and changed copy is proofread. The intake asks once
   whether a project needs a global rule relaxed.
 - The ctx7 rule and `docs-researcher` stop Git Bash on Windows rewriting library IDs.
+- The kit now needs Node 22.20.0 or later, which the pinned `skills` CLI already required. `doctor`
+  fails on an older Node.
 
 Fixed:
 
@@ -44,6 +46,9 @@ Security:
 
 - On Windows, commands the CLI starts no longer find a program planted in the current repo.
 - Every `.bak-*` copy made inside a git repo is hidden from git.
+- `new` and `start-project` keep `.env*` out of git (`.env.example` stays in), in `.gitignore`, or in
+  `.git/info/exclude` for a local-only setup. `start-project` warns when an env file is already
+  committed.
 
 ## 0.8.0
 

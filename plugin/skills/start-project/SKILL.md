@@ -57,11 +57,11 @@ Do what `npx pantoo-ai new` does, from `${CLAUDE_PLUGIN_ROOT}/templates/`:
    `backend` or `automation`; `automation` for that kind. **Never overwrite a file that exists.**
 3. In the copies: replace `{{PROJECT_NAME}}`. In `CLAUDE.md` / `CLAUDE.local.md`, delete the
    `<!-- UI projects only … -->` line, and for `backend` and `automation` everything after it too.
-4. Not local: add `context/session.md` to `.gitignore`, and merge `templates/claude-settings.json`
-   into `.claude/settings.json` (keep every existing key). Write refused → show that JSON to add.
-   Local: append each path in `manifest.json` → `kitPaths` to
+4. Not local: add `context/session.md`, `.env*` and `!.env.example` to `.gitignore`, and merge
+   `templates/claude-settings.json` into `.claude/settings.json` (keep every existing key). Write
+   refused → show that JSON to add. Local: append each path in `manifest.json` → `kitPaths` to
    `$(git rev-parse --git-path info/exclude)`, with a leading `/` on the `root` ones, leaving out
-   any path that is tracked.
+   any path that is tracked, then `.env*`, `!.env.example`. Any other `.env*` tracked → say its values need rotating (rule 2).
 5. Write `.pantoo.json`: `{ "layout": 2, "name", "kind", "ui", "existing", "multiSurface",
    "local", "shared", "companions": [] }`. `shared`: `true` only if step 4 wrote the settings.
 

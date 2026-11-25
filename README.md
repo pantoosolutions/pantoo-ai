@@ -19,10 +19,10 @@ up any project.
 - **The `claude` CLI in a terminal**, version 2.1.177 or later, signed in. The kit installs the plugin
   by running `claude plugin`, and the VS Code extension alone doesn't put `claude` in your terminal.
   [Install Claude Code](https://code.claude.com/docs/en/setup) and check with `claude --version`
-- [Node.js](https://nodejs.org/en/download) 20 or later, and git
+- [Node.js](https://nodejs.org/en/download) 22.20.0 or later, and git
 - Windows: [Git for Windows](https://git-scm.com/downloads/win) (Claude Code uses its Git Bash)
 - `curl`, to install impeccable (built into macOS and Windows 10 and later)
-- Optional: Node.js 22 and Chrome, Edge or Chromium for taste's page checker, and the
+- Optional: Chrome, Edge or Chromium for taste's page checker, and the
   [GitHub CLI](https://cli.github.com) (`gh`) for pull requests. `doctor` warns when one is missing
 
 ## Install
