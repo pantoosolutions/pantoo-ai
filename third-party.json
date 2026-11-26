@@ -37,18 +37,31 @@
     "ui-ux-pro-max": {
       "label": "ui-ux-pro-max (styles, palettes, font pairings)",
       "repo": "nextlevelbuilder/ui-ux-pro-max-skill",
-      "tag": "main@8db3633",
-      "sha": "8db36338810d0942567b97ce439affd1619fcf31",
+      "tag": "main@b73ee96",
+      "sha": "b73ee96f8d4ff7bbc279c52dadcd907ffe23629c",
       "hashes": {
         "banner-design": "6a6ac397e7488da8534c2b894c8ed0f6372ff01d21b1798b42b0fc3df105648c",
         "brand": "94f9f05a1de0aa05cdda1fca2792cc4e9f4e29bae06546ca3e0c660c9b7de7a4",
         "design": "f900b6aa65ed502b0dc69f773196961742633720bf6e0d07ac94537fdd135b06",
         "design-system": "107c327e3b31e5203d11d53ebbd1d36f0a2f55fa836837281a42bdd17dc2f24e",
         "slides": "918974229b784fa294cfd6f04b6ac39b92fffe2e4daa61f350ab1b01a270a533",
-        "ui-styling": "c14668e47dee1b18e7b73e7fdd450bd741bbde707a73c2b419e4c5d801d8a7fa",
-        "ui-ux-pro-max": "0e889e5377f41bdcf10cf65bda506c3edd346cabd1c9ba04931f26abbff5c723"
+        "ui-styling": "22445c2a2f8dce360f8a2fa50673e81ddfdd27145f51d685819964f83afed7e4",
+        "ui-ux-pro-max": "489035300f39ad7d57de2117b3f7d0c8e9b969025d40b8f3b3210fa28a69b8bb"
       },
       "previous": [
+        {
+          "tag": "main@8db3633",
+          "sha": "8db36338810d0942567b97ce439affd1619fcf31",
+          "hashes": {
+            "banner-design": "6a6ac397e7488da8534c2b894c8ed0f6372ff01d21b1798b42b0fc3df105648c",
+            "brand": "94f9f05a1de0aa05cdda1fca2792cc4e9f4e29bae06546ca3e0c660c9b7de7a4",
+            "design": "f900b6aa65ed502b0dc69f773196961742633720bf6e0d07ac94537fdd135b06",
+            "design-system": "107c327e3b31e5203d11d53ebbd1d36f0a2f55fa836837281a42bdd17dc2f24e",
+            "slides": "918974229b784fa294cfd6f04b6ac39b92fffe2e4daa61f350ab1b01a270a533",
+            "ui-styling": "c14668e47dee1b18e7b73e7fdd450bd741bbde707a73c2b419e4c5d801d8a7fa",
+            "ui-ux-pro-max": "0e889e5377f41bdcf10cf65bda506c3edd346cabd1c9ba04931f26abbff5c723"
+          }
+        },
         {
           "tag": "v2.15.0",
           "sha": "a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5",

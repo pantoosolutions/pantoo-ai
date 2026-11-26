@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.1
+
+- `npx pantoo-ai update` also updates project-scope installs of the plugin, on every project on the
+  machine, when they're behind the user-scope one. Claude Code's auto-update moves only the user-scope
+  install, so these stayed at the version they were installed at. The update runs in each project's
+  folder and changes only Claude Code's install record, not the project's files. A project whose
+  folder is gone is listed and left alone.
+- `doctor` warns about each project-scope install that's behind, and names the project.
+- ui-ux-pro-max moves to `main@b73ee96`: a PySide6 / Qt stack in its data, and `ui-styling` finds
+  shadcn components under `src/` and custom aliases. No new hooks or network calls.
+
 ## 0.9.0
 
 - `npx pantoo-ai move export` and `move import <folder>` carry a project's ignored kit files, Claude

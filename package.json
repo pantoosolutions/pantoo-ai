@@ -1,6 +1,6 @@
 {
   "name": "pantoo-ai",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Pantoo's kit for Claude Code: skills, agents, rules and context templates, installed with one command.",
   "license": "MIT",
   "author": "Pantoo Solutions S.A.C.",

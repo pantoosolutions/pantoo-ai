@@ -1,6 +1,6 @@
 {
   "name": "pantoo",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Pantoo's kit for Claude Code: project workflow skills and review, verification and build agents.",
   "author": {
     "name": "Pantoo Solutions"

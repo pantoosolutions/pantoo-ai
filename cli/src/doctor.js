@@ -12,6 +12,7 @@ import { secretChecks, plain } from './secrets.js';
 import { sourceChecks } from './sources.js';
 import { git } from './spawn.js';
 import { MIN_NODE, nodeAtLeast } from './node-version.js';
+import { staleProjects } from './project-plugins.js';
 import { PLACEHOLDER } from '../../plugin/skills/start-project/scripts/state.mjs';
 import { COMPANIONS, TOOLS, designMissing, readHolds, skillState, stateRow, toolState } from './third-party.js';
 
@@ -59,6 +60,16 @@ function pluginList(prof, cwd) {
   } catch {
     return { error: false, bad: true, plugins: [] };
   }
+}
+
+// Project-scope installs left behind by auto-update, which moves only the user-scope one.
+export function projectPluginChecks(plugins, exists) {
+  const { latest, behind } = staleProjects(plugins, exists);
+  return behind.map((p) => ({
+    level: 'warn',
+    what: `plugin ${PLUGIN} (project ${path.basename(p.projectPath)})`,
+    note: `${p.version}, behind ${latest}; run \`npx pantoo-ai update\``,
+  }));
 }
 
 // The guard mode is stored under pluginConfigs by `claude plugin configure`; the exact shape is
@@ -190,6 +201,7 @@ function userChecks(prof, info, pythonFor) {
     if (list.bad) add('warn', 'plugin list', 'could not read `claude plugin list --json`');
     const found = list.plugins.find?.((p) => p.id === PLUGIN || p.name === 'pantoo');
     add(found ? 'ok' : 'fail', `plugin ${PLUGIN}`, found ? '' : `not installed; run \`npx pantoo-ai init\` (or just \`claude plugin install ${PLUGIN}\`)`);
+    checks.push(...projectPluginChecks(Array.isArray(list.plugins) ? list.plugins : []));
   }
 
   checks.push(...marketplaceChecks(prof, config?.marketplace));

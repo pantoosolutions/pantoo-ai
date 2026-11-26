@@ -336,7 +336,7 @@ test('doctor checks companions by their files, and a hold on ui-ux-pro-max cover
   };
   assert.equal(level('kit\n').level, 'ok');
   assert.match(level('earlier\n').note, /^older/);
-  assert.match(level('earlier\n', { 'ui-ux-pro-max': uiux.previous[0].sha }).note, /^held at v2\.15\.0/);
+  assert.ok(level('earlier\n', { 'ui-ux-pro-max': uiux.previous[0].sha }).note.startsWith(`held at ${uiux.previous[0].tag}`));
   assert.equal(level('kit\n', { 'ui-ux-pro-max': uiux.previous[0].sha }).level, 'ok');
   assert.match(projectChecks(dir, prof).find((c) => c.what === 'companion ../../..').note, /not a companion/);
 });
