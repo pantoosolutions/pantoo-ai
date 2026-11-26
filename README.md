@@ -110,7 +110,9 @@ missing and the command that fixes it.
 
 ## Keeping it current
 
-- **The plugin auto-updates** when Claude Code starts. Only released versions ship.
+- **The plugin auto-updates** when Claude Code starts. Only released versions ship. Auto-update moves
+  only the user-scope install: a project-scope install stays at the version it was installed at until
+  `npx pantoo-ai update`, which updates every one on the machine that's behind. `doctor` names them.
 - **Rules, settings and pinned design tools:** `npx pantoo-ai update`. It always runs the latest CLI,
   replays your saved choices, replaces rules you haven't edited and keeps the ones you have, with a
   warning.

@@ -6,6 +6,7 @@ import { unmergeSettings } from './settings.js';
 import { OPTIONS, PLUGIN, applyKit, claude, clearSaved, configureGuard, loadSaved, saveSaved, syncTools, installUnlessHeld, target } from './install.js';
 import { MACHINE_HEADER, MACHINE_RULE } from './machine.js';
 import { PROJECT_FILE, hideCompanions } from './scaffold.js';
+import { parsePlugins, staleProjects } from './project-plugins.js';
 import { COMPANIONS, THIRD_PARTY, TOOLS, defaultRun, heldRow, installCompanions, installedRefs, readHolds, removeTool, skillState, skillsRoot } from './third-party.js';
 
 const lastLine = (out) => out.split('\n').filter(Boolean).pop() ?? '';
@@ -13,6 +14,23 @@ const row = (what, r, ok, note = '') => ({ what, status: r.ok ? ok : 'FAILED', n
 
 // The scopes with saved choices: user always, project when `dir` has an `init` record.
 const savedTargets = (prof, dir) => [target('user', prof, dir), target('project', prof, dir)].filter((t) => loadSaved(t));
+
+// Every project-scope install of the plugin, on this machine, that's behind the user-scope one. The
+// update runs inside each project's folder and writes only Claude Code's install record, never the
+// project's files.
+function updateProjectPlugins(t, run) {
+  const list = claude(t, run, ['plugin', 'list', '--json']);
+  if (!list.ok) return [];
+  const { behind, gone } = staleProjects(parsePlugins(list.out));
+  const results = behind.map((p) => {
+    const up = run('claude', ['plugin', 'update', PLUGIN, '--scope', 'project'], { cwd: p.projectPath, env: t.prof.env });
+    return row(`plugin ${PLUGIN} (project ${path.basename(p.projectPath)})`, up, 'updated', `was ${p.version}`);
+  });
+  if (gone.length) {
+    results.push({ what: `plugin ${PLUGIN} (projects)`, status: 'skipped', note: `folder gone: ${gone.map((p) => p.projectPath).join(', ')}` });
+  }
+  return results;
+}
 
 export function update({ prof, dir, force, run = defaultRun }) {
   const results = [];
@@ -34,6 +52,7 @@ export function update({ prof, dir, force, run = defaultRun }) {
     const tools = syncTools(t, saved, run);
     results.push(...(tools.length ? tools : [{ what: `design tools${label}`, status: 'up to date' }]));
   }
+  if (targets.length) results.push(...updateProjectPlugins(targets[0], run));
   const companions = project.companions ?? [];
   const holds = readHolds(prof);
   if (companions.length && Object.hasOwn(holds, 'ui-ux-pro-max')) {
